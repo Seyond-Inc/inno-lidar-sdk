@@ -1,6 +1,6 @@
 # Introduction
 
-CLient_SDK project is the software development kit to help application developers easily interact with lidar. And Rich development documentation([HOW_TO_USE_CLIENT_SDK.md](./docs/HOW_TO_USE_CLIENT_SDK.md)) and sample code([demo.cpp](./apps/example/demo.cpp)) are provided to allow developers to get quickly started. Besides, there are some useful execution files and scripts in ```apps``` directory. For detailed information, please refer to the corresponding documents in each directory.
+inno-lidar-sdk project is the software development kit to help application developers easily interact with lidar. the development documentation([HOW_TO_USE_CLIENT_SDK.md](./docs/HOW_TO_USE_CLIENT_SDK.md)) and sample code([demo.cpp](./apps/example/demo.cpp)) are provided to allow developers to get quickly started. Besides, there are some useful execution files and scripts in ```apps``` directory. For detailed information, please refer to the corresponding documents in each directory.
 
 # Lidar Supported
 
@@ -21,7 +21,7 @@ Supported Platforms
 
 + MacOs
 + Windows
-+ linux(ubuntu16.04, ubuntu18.04, ubuntu20.04)
++ linux
 + qnx
 
 
