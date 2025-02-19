@@ -36,8 +36,8 @@
  * SDK VERSION
  *****************/
 #define INNO_SDK_V_MAJOR "3"
-#define INNO_SDK_V_MINOR "101"
-#define INNO_SDK_V_DOT "2"
+#define INNO_SDK_V_MINOR "102"
+#define INNO_SDK_V_DOT "10"
 #define INNO_SDK_VERSION_IN_HEADER INNO_SDK_V_MAJOR "." INNO_SDK_V_MINOR "." INNO_SDK_V_DOT "."
 
 /************
@@ -1026,7 +1026,7 @@ typedef int (*InnoStatusPacketCallback)(int lidar_handle,
 typedef double (*InnoHosttimeCallback)(void *context);
 
 /**
- * @brief InnoStatusPacketCallback
+ * @brief InnoRecorderCallback
  * @param lidar_handle The handle of the lidar that triggered the callback.
  * @param context Callback context passed in inno_lidar_set_recorder_callback().
  * @param buffer Pointer to the buffer

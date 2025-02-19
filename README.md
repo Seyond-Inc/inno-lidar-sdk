@@ -1,15 +1,15 @@
 # Introduction
 
-inno-lidar-sdk project is the software development kit to help application developers easily interact with lidar. the development documentation([HOW_TO_USE_CLIENT_SDK.md](./docs/HOW_TO_USE_CLIENT_SDK.md)) and sample code([demo.cpp](./apps/example/demo.cpp)) are provided to allow developers to get quickly started. Besides, there are some useful execution files and scripts in ```apps``` directory. For detailed information, please refer to the corresponding documents in each directory.
+inno-lidar-sdk is the software development kit to help application developers easily interact with lidar. the development documentation([HOW_TO_USE_CLIENT_SDK.md](./docs/HOW_TO_USE_CLIENT_SDK.md)) and sample code([demo.cpp](./apps/example/demo.cpp)) are provided to allow developers to get quickly started. Besides, there are some useful execution files and scripts in ```apps``` directory. For detailed information, please refer to the corresponding documents in each directory.
 
-# Lidar Supported
+# Supported Lidar
 
-+ Robin_W
-+ Robin_E
-+ Falcon2.1
-+ Falcon_K
-+ Falcon_K2
-+ Robin_ELITE
++ Falcon-K1
++ Falcon-K2
++ Falcon-k24
++ Robin-W
++ Robin-E
++ Robin-ELITE(Robin-E1X)
 
 
 # Supported Platforms
@@ -42,6 +42,19 @@ cmake ..
 ```
 - Open the Visual Studio Solution and compile
 
+
+# Quick Start
+inno-lidar-sdk offers two demo programs in ./apps/example directory
+
+-   ```demo.cpp```
+
+   connects to online lidar, and callback by xyz frame.
+
+-   ```sphere2xyz.cpp```
+
+   connects to online lidar, and callback by sphere packet, upper-layer implements frame assembly logic and coordinate conversion.
+
+
 # Directory Structure
 
 + ```apps```: Source files to generate applications
@@ -50,7 +63,7 @@ cmake ..
     + ```check_net``` Tool for network check. Please press *[here](./docs/check_net.md)* to see detailed information.
     + ```get_pcd```  Tool for obtaining pointcloud and converting file format. Please press *[here](./docs/get_pcd.md)* to see detailed information.
     + ```innovusion_wireshark_plugin``` Lua script for wireshark. Please press *[here](./docs/innovusion_lua.md)* to see detailed information.
-    + ```lidar_util``` lidar configuration tools can modify some configurations of lidar, get information of lidar and upload or download file (may cancle later). Please press *[here](./docs/innovusion_lidar_util.md)* to see detailed information.
+    + ```innovusion_lidar_util``` lidar configuration tools.
 + ```docs``` Documents help compile and use client SDK
 + ```build``` All kinds of build script
 + ```lib``` Library files
