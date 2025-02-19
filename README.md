@@ -78,7 +78,6 @@ inno-lidar-sdk offers two demo programs in ./apps/example directory
 ```shell
 ├── apps
 │   ├── example
-│   ├── pcs
 │   └── tools
 │       ├── check_net
 │       ├── get_pcd
