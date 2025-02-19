@@ -11,13 +11,8 @@ inno-lidar-sdk project is the software development kit to help application devel
 + Falcon_K2
 + Robin_ELITE
 
-# Type of pointcloud supported
 
-+ Spherical coordinate system
-+ Cartesian coordinate system
-
-
-Supported Platforms
+# Supported Platforms
 
 + MacOs
 + Windows
