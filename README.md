@@ -24,6 +24,9 @@ inno-lidar-sdk is the software development kit to help application developers ea
 
 ## for Linux and MacOS
 
+- Prerequisites
+  + gcc
+  + cmake
 ```
 cd build && ./build_unix.sh
 ```
