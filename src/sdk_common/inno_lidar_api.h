@@ -530,14 +530,6 @@ INNO_API void inno_lidar_set_logs(int out_fd, int error_fd, const char *rotate_f
  */
 INNO_API void inno_lidar_log_callback(InnoLogCallback log_callback, void *ctx);
 
-/*
- * @brief Download "uds.log","ila.log","inno_pc_server.txt" and "lidar-log.txt"
- * @param ip (e.g. 10.42.0.91)
- * @param Download path (e.g. /home/demo/Desktop/pipeline)
- * @return 0 means success, otherwise failure
- */
-INNO_API int inno_lidar_download_logs(const char* ip, const char* path);
-
 /**
  * @brief Set recorder callback
  * @param handle            Lidar handle
