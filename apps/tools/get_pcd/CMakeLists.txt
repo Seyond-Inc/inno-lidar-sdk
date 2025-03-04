@@ -9,11 +9,6 @@ set(SOURCES_GET_PCD get_pcd.cpp)
 add_executable(${PROJECT_NAME} ${SOURCES_GET_PCD})
 
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    if (NOT MINGW)
-        target_sources(${PROJECT_NAME} PRIVATE ${SOURCES_GET_PCD} ${res_file})
-        add_dependencies(${PROJECT_NAME} VERSION_RES)
-        target_link_libraries(${PROJECT_NAME} PRIVATE ${res_file})
-    endif()
     # include MSVC and MingW
     target_link_libraries(${PROJECT_NAME} PRIVATE innolidarsdkclient innolidarsdkcommon innolidarutils ws2_32 wsock32)
 elseif(IS_QNX)
