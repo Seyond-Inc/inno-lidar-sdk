@@ -1869,14 +1869,7 @@ int main(int argc, char **argv) {
   }
 
   int ret;
-#if !defined(__MINGW64__) && defined(_WIN32)
-  ret = innovusion::InnoUtils::print_app_ver();
-  if (ret != 0) {
-    exit(ret);
-  }
-#else
   print_api();
-#endif
 
   /***********************
    * set debug level
