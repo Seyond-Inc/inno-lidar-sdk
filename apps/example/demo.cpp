@@ -218,7 +218,7 @@ int CallbackProcessor::process_data(int handler, const InnoDataPacket &pkt) {
   }
   // deliver the frame data to user and then clear the buffer
   frame_data_.clear();
-  inno_log_info("frame idx: %" PRId64 ", total point: %" PRI_SIZEU, pkt.idx, pkt.item_number);
+  inno_log_info("frame idx: %" PRId64 ", total point: %u", pkt.idx, pkt.item_number);
   return 0;
 }
 

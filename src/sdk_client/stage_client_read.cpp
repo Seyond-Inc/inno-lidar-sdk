@@ -40,6 +40,11 @@ StageClientRead::~StageClientRead(void) {
     std::unique_lock<std::mutex> lk(mutex_);
     inno_log_verify(state_ == InnoLidarBase::STATE_INIT, "invalid state=%d", state_);
   }
+  recorder_thread_runing_ = false;
+  recorder_cv_.notify_one();
+  if (recorder_thread_.joinable()) {
+    recorder_thread_.join();
+  }
 }
 
 void StageClientRead::start_reading_(void) {
@@ -72,6 +77,8 @@ void StageClientRead::stop(void) {
     inno_log_info("%s wait for state %d", get_name_(), state_);
     return state_ != InnoLidarBase::STATE_STOPPING;
   });
+  recorder_thread_runing_ = false;
+  recorder_cv_.notify_one();
 }
 
 void StageClientRead::final_cleanup(void) {
@@ -184,13 +191,61 @@ bool StageClientRead::stopping_or_stopped_() {
 
 void StageClientRead::add_deliver_packet_(InnoCommonHeader *header) {
   lidar_->stats_update_packet_bytes(ResourceStats::PACKET_TYPE_SRC, 1, header->size);
-  //  async recorder
-  if (lidar_->recorder_callbacks_[INNO_RECORDER_CALLBACK_TYPE_INNO_PC]) {
-    char *data = reinterpret_cast<char *>(lidar_->alloc_buffer_(lidar_->kMaxPacketSize));
-    memcpy(data, header, header->size);
-    lidar_->add_recorder_job_(reinterpret_cast<void *>(data));
-  }
+  inno_pc_recorder(header);
   lidar_->add_deliver_job_(header);
+}
+
+void StageClientRead::inno_pc_recorder(InnoCommonHeader *header) {
+  //  async recorder inno_pc
+  if (lidar_->recorder_callbacks_[INNO_RECORDER_CALLBACK_TYPE_INNO_PC] &&
+      header->version.magic_number == kInnoMagicNumberDataPacket &&
+      reinterpret_cast<InnoDataPacket *>(header)->type != INNO_ITEM_TYPE_MESSAGE &&
+      reinterpret_cast<InnoDataPacket *>(header)->type != INNO_ITEM_TYPE_MESSAGE_LOG) {
+    char *data = reinterpret_cast<char *>(lidar_->alloc_buffer_(lidar_->kMaxPacketSize));
+
+    if (!recorder_queue_.isFull()) {
+      memcpy(data, header, header->size);
+      recorder_queue_.enqueue(data);
+      // only notify when recorder_queue_ size > kRecorderNotifyInterval
+      // to avoid notify too frequently and cause performance issue
+      if (recorder_queue_.size() > kRecorderNotifyInterval) {
+        recorder_cv_.notify_one();
+      }
+    } else {
+      inno_log_warning("drop recorder data");
+      lidar_->free_buffer_(data);
+    }
+
+    if (!recorder_thread_runing_) {
+      recorder_thread_runing_ = true;
+      recorder_thread_ = std::thread(&StageClientRead::async_recorder, this);
+    }
+  }
+}
+
+void StageClientRead::async_recorder() {
+  while (recorder_thread_runing_) {
+    char *data_packet = nullptr;
+    if (!recorder_queue_.isEmpty()) {
+      recorder_queue_.dequeue(data_packet);
+    } else {
+      std::unique_lock<std::mutex> lck(recorder_cv_mutex_);
+      recorder_cv_.wait(lck);
+    }
+    if (data_packet) {
+      lidar_->do_recorder_callback(INNO_RECORDER_CALLBACK_TYPE_INNO_PC, reinterpret_cast<char *>(data_packet),
+                                   +reinterpret_cast<InnoDataPacket *>(data_packet)->common.size);
+      lidar_->free_buffer_(data_packet);
+    }
+  }
+  // free all the data_packet in recorder_queue_
+  while (!recorder_queue_.isEmpty()) {
+    char *data_packet = nullptr;
+    recorder_queue_.dequeue(data_packet);
+    if (data_packet) {
+      lidar_->free_buffer_(data_packet);
+    }
+  }
 }
 
 void StageClientRead::flush_cached_packet() {
@@ -678,13 +733,6 @@ int UdpInput::bind_udp_port_(uint16_t port) {
   return InnoUdpHelper::bind(port, opts);
 }
 
-void UdpInput::wait_until_stopping_() {
-  while (start_flag_) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    continue;
-  }
-}
-
 int UdpInput::read_udp_(int32_t port) {
   int fd = bind_udp_port_(port);
   uint32_t timeout_flag = 1;
@@ -881,8 +929,6 @@ int UdpInput::read_data() {
       threads.push_back(new std::thread([this, ports, i]() { read_udp_(ports[i]); }));
     }
   }
-
-  wait_until_stopping_();
 
   for (auto &th : threads) {
     th->join();

@@ -19,7 +19,6 @@
 #include "sdk_client/ring_id_converter/ring_id_converter.h"
 #include "sdk_client/stage_client_deliver.h"
 #include "sdk_client/stage_client_read.h"
-#include "sdk_client/stage_client_recorder.h"
 #include "sdk_common/inno_lidar_other_api.h"
 #include "utils/consumer_producer.h"
 #include "utils/mem_pool_manager.h"
@@ -208,10 +207,6 @@ void InnoLidarClient::add_deliver_job_(void *job) {
 
 void InnoLidarClient::add_deliver2_job_(void *job) {
   cp_deliver2_->add_job(job);
-}
-
-void InnoLidarClient::add_recorder_job_(void *job) {
-  cp_recorder_->add_job(job);
 }
 
 int InnoLidarClient::set_config_name_value(const char *name, const char *value) {
@@ -762,8 +757,6 @@ int InnoLidarClient::start() {
   stage_deliver_ = new StageClientDeliver(this);
   inno_log_verify(stage_deliver_, "stage_deliver_");
 
-  stage_recorder_ = new StageClientRecorder(this);
-  inno_log_verify(stage_recorder_, "stage_recorder_");
   cp_deliver2_ = new ConsumerProducer("deliver2", 0, 1, StageClientDeliver2::process, stage_deliver2_, 200, 0, 100,
                                       cpusetsize_, exclude_callback_thread_ ? NULL : cpuset_);
   inno_log_verify(cp_deliver2_, "deliver2");
@@ -774,9 +767,6 @@ int InnoLidarClient::start() {
                                      can_drop ? 400 : 0, 100, cpusetsize_, exclude_callback_thread_ ? NULL : cpuset_);
   inno_log_verify(cp_deliver_, "deliver");
 
-  cp_recorder_ = new ConsumerProducer("recoder", 0, 1, StageClientRecorder::process, stage_recorder_, 200, 200, 0,
-                                     cpusetsize_, exclude_callback_thread_ ? NULL : cpuset_);
-  inno_log_verify(cp_deliver_, "recoder");
 
   int priority = 0;
 #ifdef __linux__
@@ -800,7 +790,6 @@ int InnoLidarClient::start() {
   cp_deliver_->start();
   cp_read_->start();
   cp_read_->add_job(NULL);
-  cp_recorder_->start();
   inno_log_info("%s started", name_);
   return 0;
 }
@@ -830,7 +819,6 @@ void InnoLidarClient::stop() {
   inno_log_info("%s final cleanup", name_);
   stage_read_->final_cleanup();
 
-  cp_recorder_->shutdown();
   std::unique_lock<std::mutex> lk(last_stage_mutex_);
   last_stage_is_up_ = false;
   #if !(defined (_QNX_) || defined (_WIN32))
@@ -854,9 +842,6 @@ void InnoLidarClient::stop() {
   delete cp_deliver_;
   cp_deliver_ = NULL;
 
-  delete cp_recorder_;
-  cp_recorder_ = NULL;
-
   // DO NOT delete stage_read
   delete stage_deliver_;
   stage_deliver_ = NULL;
@@ -864,8 +849,6 @@ void InnoLidarClient::stop() {
   delete stage_deliver2_;
   stage_deliver2_ = NULL;
 
-  delete stage_recorder_;
-  stage_recorder_ = NULL;
   inno_log_info("%s stopped", name_);
 }
 

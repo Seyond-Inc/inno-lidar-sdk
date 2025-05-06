@@ -376,11 +376,8 @@ class InnoDataPacketUtils {
     // FOV: -60 ~ 60, -55 ~ 15
     static int fov_top_left_angle = -60.0 * kInnoAngleUnitPerDegree;
     static int fov_top_right_angle = 60.0 * kInnoAngleUnitPerDegree;
-    static int fov_top_low_angle = -55.0 * kInnoAngleUnitPerDegree;
-    static int fov_top_high_angle = 15.0 * kInnoAngleUnitPerDegree;
 
-    if (angle.h_angle < fov_top_left_angle || angle.h_angle > fov_top_right_angle ||
-        angle.v_angle < fov_top_low_angle || angle.v_angle > fov_top_high_angle) {
+    if (angle.h_angle < fov_top_left_angle || angle.h_angle > fov_top_right_angle) {
       return false;
     } else {
       return true;

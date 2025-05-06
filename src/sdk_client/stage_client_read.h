@@ -24,6 +24,7 @@
 #include "sdk_common/inno_lidar_packet.h"
 #include "sdk_common/lidar_base.h"
 #include "utils/config.h"
+#include "utils/circular_buffer.h"
 // #include "sdk/types_consts.h"
 
 namespace innovusion {
@@ -282,10 +283,6 @@ class UdpInput : public BaseInput {
    */
   int bind_udp_port_(uint16_t port);
   /**
-   * @brief Wait until current state is STOPPING or STOPPED
-   */
-  void wait_until_stopping_();
-  /**
    * @brief Read data/message/satus UDP and send to deliver stage
    * @param port UDP port id
    * @return Return 0 for success, others for error
@@ -424,6 +421,8 @@ class StageClientRead {
 
  public:
   static const int32_t kResetMisorderQueueFrameIdxDiff = 10;
+  static const int32_t kRecorderQueueMaxLen = 200;
+  static const int32_t kRecorderNotifyInterval = 20;
   /**
    * @brief Read stage main function
    * @param job     Ignored
@@ -499,10 +498,6 @@ class StageClientRead {
    */
   void send_fatal_message_();
   /**
-   * @brief Wait until current state is STOPPING or STOPPED
-   */
-  void wait_until_stopping_();
-  /**
    * @brief Get state STOPPING or STOPPED
    * @return Return true means current state is STOPPING or STOPPED, otherwise not
    */
@@ -530,6 +525,15 @@ class StageClientRead {
    * @brief free all the cached data_packet
    */
   void free_cached_packet();
+  /**
+   * @brief Add recorder queue
+   * @param header InnoCommonHeader
+   */
+  void inno_pc_recorder(InnoCommonHeader *header);
+  /**
+   * @brief Recorder thread
+   */
+  void async_recorder();
 
  private:
   InnoLidarClient *lidar_;
@@ -547,6 +551,11 @@ class StageClientRead {
   std::mutex mutex_;
   std::condition_variable cond_;
   BaseInput *input_ = NULL;
+  CircularBuffer<char *, kRecorderQueueMaxLen> recorder_queue_;
+  std::thread recorder_thread_;
+  bool recorder_thread_runing_{false};
+  std::condition_variable recorder_cv_;
+  std::mutex recorder_cv_mutex_;
 };
 
 }  // namespace innovusion

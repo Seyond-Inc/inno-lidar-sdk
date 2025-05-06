@@ -163,13 +163,12 @@ class RingBuffer {
     blocks_[index_].status = kBufUsed;
     if (index_ == block_num_ - 1) {
       index_ = 0;
-      if (blocks_[index_].status != kBufFree) {
-        inno_log_warning("All blocks has been filled, the 0th block of memory has not been released yet");
-        return false;
-      }
     } else {
       index_ += 1;
-      inno_log_verify(blocks_[index_].status == kBufFree, "block %d is in wrong status", index_);
+    }
+    if (blocks_[index_].status != kBufFree) {
+      inno_log_warning("All blocks has been filled, the %dth block of memory has not been released yet", index_);
+      return false;
     }
     return true;
   }
@@ -271,7 +270,7 @@ class FileRecorder {
         point_count_(0),
         reflectance_(reflectance),
         file_type_(file_type),
-        rosbag_stream_(NULL) { 
+        rosbag_stream_(NULL) {
     if (can_record_bag()) {
       rosbag_stream_ = new innovusion::RosbagRecorder(filename.c_str(), NULL, NULL, -1);
       inno_log_verify(rosbag_stream_, "rosbag_stream_");
@@ -715,10 +714,9 @@ class FileRecorder {
   void write_buffer_(const void *src, size_t src_len) {
     bool r = false;
     r = ring_buffer_->append(reinterpret_cast<const char *>(src), src_len);
-    // retry
-    if (!r) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-      inno_log_info("retry append");
+    while (!r) {
+      inno_log_warning("append failed, I/O is busy, sleep 1ms");
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
       r = ring_buffer_->append(reinterpret_cast<const char *>(src), src_len, true);
     }
     inno_log_verify(r, "cannot write data to ring buffer, filename is %s", filename_.c_str());
@@ -1927,7 +1925,7 @@ int main(int argc, char **argv) {
   }
 
   // the code shows 2 ways to process the data callback
- if (use_xyz_point == 1) {
+  if (use_xyz_point == 1) {
     // callback with INNO_ITEM_TYPE_SPHERE_POINTCLOUD and
     // covert to INNO_ITEM_TYPE_XYZ_POINTCLOUD
     // then enumerate each xyz points
@@ -1942,7 +1940,7 @@ int main(int argc, char **argv) {
                     "invalid use_xyz_point number, "
                     "must in [0, 1, 2]");
   }
-  if(force_vehicle_coordinate) {
+  if (force_vehicle_coordinate) {
     inno_lidar_set_attribute_string(handle, "force_vehicle_coordinate", "1");
   }
   /***********************

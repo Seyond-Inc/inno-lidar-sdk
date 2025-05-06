@@ -175,7 +175,7 @@ INNO_API int inno_lidar_set_callbacks(int handle, InnoMessageCallback message_ca
  * INNO_CALLBACK_XYZ_FRAME:  app will receive a frame of XYZ points
  * @return 0 means success, otherwise failure (e.g. invalid handle).
  */
-INNO_API int inno_lidar_set_callbacks_data_type(int handle, InnCallbackDataType type);
+INNO_API int inno_lidar_set_callbacks_data_type(int handle, enum InnCallbackDataType type);
 /*
  * @brief Start to read data from live lidar unit or from a data file.
  *        The message_callback, frame_callback and status_callback will
@@ -408,7 +408,7 @@ INNO_API int inno_lidar_get_sn(int handle, char *buffer, int buffer_len);
 INNO_API uint32_t inno_lidar_get_max_points_count(const InnoDataPacket *pkt);
 
 /*
-* @brief 
+* @brief
   [[Deprecated]]: not support compact pointcloud
   Convert SPHERE POINTCLOUD points the source
         data packet to XYZ_POINTCLOUD and add them

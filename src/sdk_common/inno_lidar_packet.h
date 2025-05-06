@@ -37,7 +37,7 @@
  *****************/
 #define INNO_SDK_V_MAJOR "3"
 #define INNO_SDK_V_MINOR "102"
-#define INNO_SDK_V_DOT "10"
+#define INNO_SDK_V_DOT "13"
 #define INNO_SDK_VERSION_IN_HEADER INNO_SDK_V_MAJOR "." INNO_SDK_V_MINOR "." INNO_SDK_V_DOT "."
 
 /************

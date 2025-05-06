@@ -5,5 +5,5 @@
  *
  */
 
-const static char inno_api_version_g[] = "3.102.10.20250219071443";
-const static char inno_api_build_tag_g[] = "release-client-3.102.10";
+const static char inno_api_version_g[] = "3.102.13.20250402030333";
+const static char inno_api_build_tag_g[] = "release-client-sdk-3.102.13";

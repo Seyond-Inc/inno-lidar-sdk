@@ -141,7 +141,6 @@ class StageClientDeliver {
   char xyz_data_packet_buf_[kMaxXyzDataPacketBufSize];
   InnoDataPacket *xyz_data_packet_;  // point to xyz_data_packet_buf_
 
-  RingIdConverterInterface *ring_id_converter_{NULL};
   InnoSummaryPackage summary_package_;
 
   int cur_lidar_mode_{0};

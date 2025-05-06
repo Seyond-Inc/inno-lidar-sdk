@@ -390,18 +390,20 @@ bool InnoDataPacketUtils::convert_to_xyz_pointcloud(const InnoDataPacket &src, I
     return false;
   }
 
+  size_t required_size = 0;
+  required_size = sizeof(InnoDataPacket);
   if (!append) {
     memcpy(dest, &src, sizeof(InnoDataPacket));
     dest->item_number = 0;
+  } else {
+    required_size = dest->common.size;
   }
   uint32_t dummy_count = 0;
 
-  size_t required_size = 0;
   uint16_t time_adjust_10us = 0;
   if (append) {
     time_adjust_10us = (src.common.ts_start_us - dest->common.ts_start_us) / 10;
   }
-  required_size = sizeof(InnoDataPacket);
   if (required_size > dest_size) {
     inno_log_warning("not enough size %" PRI_SIZELU " %" PRI_SIZELU, required_size, dest_size);
     return false;
@@ -416,7 +418,7 @@ bool InnoDataPacketUtils::convert_to_xyz_pointcloud(const InnoDataPacket &src, I
     dest->type = INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD;
     dest->item_size = sizeof(InnoEnXyzPoint);
   } else {
-    dest->type += 1;  // robin & falconIII InnoItemType xyz = sphere+1
+    dest->type = src.type + 1;  // robin & falconIII InnoItemType xyz = sphere+1
     dest->item_size = sizeof(InnoEnXyzPoint);
   }
 

@@ -12,6 +12,7 @@
 #include "sdk_client/lidar_client.h"
 #include "sdk_common/inno_lidar_packet.h"
 #include "sdk_common/inno_lidar_packet_utils.h"
+#include "sdk_common/ring_id_converter_interface.h"  // Ensure the complete type is included
 #include "utils/consumer_producer.h"
 
 namespace innovusion {
@@ -120,7 +121,7 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
             }
             if (InnoDataPacketUtils::convert_to_xyz_pointcloud(
                     *data_packet, xyz_pkt, buf_size, config_.disable_do_crc,
-                    ring_id_converter_ == NULL ? lidar_->get_ring_id_converter() : ring_id_converter_,
+                    reinterpret_cast<RingIdConverterInterface *>(lidar_->ring_id_converter_),
                     reinterpret_cast<char *>(
                         reinterpret_cast<InnoAngleHVTable *>(lidar_->anglehv_table_->payload)->table))) {
               start_2 = InnoUtils::get_time_ns();
@@ -155,7 +156,7 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
             }
             InnoDataPacketUtils::convert_to_xyz_pointcloud(
                 *data_packet, xyz_pkt, kMaxXyzDataPacketBufSize, config_.disable_do_crc,
-                ring_id_converter_ == NULL ? lidar_->get_ring_id_converter() : ring_id_converter_,
+                reinterpret_cast<RingIdConverterInterface *>(lidar_->ring_id_converter_),
                 reinterpret_cast<char *>(reinterpret_cast<InnoAngleHVTable *>(lidar_->anglehv_table_->payload)->table),
                 append);
             // last packet of the frame, deliver the frame
@@ -219,6 +220,9 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
           } else if (m->code == INNO_MESSAGE_CODE_ROI_CHANGED) {
             // update ring-id table if using ring-id
             lidar_->update_ring_id_table(nullptr);
+          } else if (m->code == INNO_MESSAGE_CODE_MAX_DISTANCE_CHECK_RESULT) {
+            // maxdistance code, not callback to app
+            do_external_callback = false;
           }
           if (lidar_->message_callback_external_ && do_external_callback) {
             // inno_log_debug("message callback");

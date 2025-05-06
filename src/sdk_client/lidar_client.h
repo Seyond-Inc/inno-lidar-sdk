@@ -40,7 +40,6 @@ class MemPool;
 class StageClientRead;
 class StageClientDeliver;
 class StageClientDeliver2;
-class StageClientRecorder;
 class RingIdConverter;
 class RawReceiver;
 
@@ -426,7 +425,6 @@ class InnoLidarClient : public InnoLidarBase {
    */
   void add_deliver2_job_(void *);
 
-  void add_recorder_job_(void *);
   /**
    * @brief Check if packet received from target lidar
    * @param specified_ip lidar ip
@@ -462,7 +460,6 @@ class InnoLidarClient : public InnoLidarBase {
   StageClientRead *stage_read_;
   StageClientDeliver *stage_deliver_;
   StageClientDeliver2 *stage_deliver2_;
-  StageClientRecorder *stage_recorder_;
   bool force_xyz_pointcloud_;
 
   ClientStats *client_stats_;
