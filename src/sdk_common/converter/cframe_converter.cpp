@@ -189,7 +189,7 @@ inline void CframeConverter::add_cpoint_to_current_cframe_(void *ctx, const Inno
   inno_cpoint &cpoint = current_cframe_->cpoints[pcount];
 
   if (pt.radius > 0 &&
-      pcount < kMaxNumberInCframe && InnoDataPacketUtils::is_robinw_inside_fov_point(full_angles.angles[ch])) {
+      pcount < kMaxNumberInCframe && InnoDataPacketUtils::is_inside_fov_point(full_angles.angles[ch],static_cast<InnoItemType>(pkt.type))) {
     // xxx todo: hard coded
     cpoint.radius = pt.radius >> en_radius_shift_;
     cpoint.h_angle = full_angles.angles[ch].h_angle >> angle_shift_;
@@ -287,8 +287,7 @@ void CframeConverter::update_current_cframe_v2_(
   } else if (pkt->type == INNO_ITEM_TYPE_SPHERE_POINTCLOUD) {
     size_t count = 0;
     ITERARATE_INNO_DATA_PACKET_CPOINTS(add_cpoint_to_current_cframe_, NULL, pkt, count);
-  } else if (pkt->type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-             pkt->type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+  } else if (CHECK_CO_SPHERE_POINTCLOUD_DATA(pkt->type)) {
     size_t count = 0;
     ITERARATE_INNO_DATA_PACKET_CO_CPOINTS(add_cpoint_to_current_cframe_, NULL, pkt, count, table);
   } else if (pkt->type == INNO_ITEM_TYPE_XYZ_POINTCLOUD) {

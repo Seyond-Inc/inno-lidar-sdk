@@ -26,26 +26,30 @@
 #include "utils/inno_lidar_log.h"
 
 #define CHECK_XYZ_POINTCLOUD_DATA(X)                                                  \
-(X == INNO_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINE_ITEM_TYPE_XYZ_POINTCLOUD || \
+(X == INNO_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_SPHERE_POINTCLOUD_DATA(X)                                                     \
-(X == INNO_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD || \
+(X == INNO_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD)
 
 #define CHECK_EN_XYZ_POINTCLOUD_DATA(X)                                                      \
-(X == INNO_ROBINE_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || \
+(X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_EN_SPHERE_POINTCLOUD_DATA(X) \
 (X == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || \
 X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD)
 
-#define CHECK_CO_SPHERE_POINTCLOUD_DATA(X) \
-(X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD)
+#define CHECK_CO_SPHERE_POINTCLOUD_DATA(X)                                                               \
+(X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD || \
+X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD)
 
+#define CHECK_ANGLEHV_TABLE_DATA(X) \
+(X == INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE || X == INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE || \
+X == INNO_HB_ITEM_TYPE_ANGLEHV_TABLE)
 // FUNC is in type InnoDataPacketPointsIterCallback
 #define ITERARATE_INNO_DATA_PACKET_CPOINTS(FUNC, ctx, packet, count)                                            \
   do {                                                                                                          \
@@ -124,7 +128,8 @@ X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD)
       }                                                                                                           \
       for (uint32_t ch = 0; ch < kInnoCompactChannelNumber; ch++) {                                               \
         for (uint32_t m = 0; m < mr; m++) {                                                                       \
-          if (table && !InnoDataPacketUtils::is_robinw_inside_fov_point(full_angles.angles[ch])) {                \
+          if (table && !InnoDataPacketUtils::is_inside_fov_point(full_angles.angles[ch],                          \
+            static_cast<InnoItemType>((packet)->type))) {      \
             continue;                                                                                             \
           }                                                                                                       \
           const InnoCoChannelPoint &pt = block->points[innocoblock_get_idx(ch, m)];                               \
@@ -154,20 +159,15 @@ X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD)
 // only used for robin
 #define DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(type)                              \
   const uint8_t *channel_mapping;                                              \
-  int tdc_channel_number;                                                      \
-  if (type == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD) {                       \
-    channel_mapping = &InnoDataPacketUtils::robine_channel_mapping[0];         \
-    tdc_channel_number = InnoDataPacketUtils::RobinETDCChannelNumber;          \
-  } else if (type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD ||                \
+  int tdc_channel_number = 0;                                                  \
+  if (type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD ||                       \
              type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD) {               \
     channel_mapping = &InnoDataPacketUtils::robinw_channel_mapping[0];         \
     tdc_channel_number = InnoDataPacketUtils::RobinWTDCChannelNumber;          \
   } else {                                                                     \
     channel_mapping = &InnoDataPacketUtils::robinelite_channel_mapping[0];     \
-    tdc_channel_number = 0;                                                    \
   }
 
-extern "C" {
 class InnoBlockAngles {
  public:
   int16_t h_angle;
@@ -190,18 +190,6 @@ class InnoCoBlockFullAngles {
  * @brief InnoDataPacketUtils
  */
 class InnoDataPacketUtils {
-  /**
-   * @brief InnoDataPacketPointsIterCallback
-   */
-  typedef void (*InnoDataPacketPointsIterCallback)(void *ctx, const InnoDataPacket &pkt, const InnoBlock &block,
-                                                   const InnoChannelPoint &pt, const InnoBlockFullAngles &angle,
-                                                   const uint16_t ch, const uint16_t m);
-
-  /**
-   * @brief InnoDataPacketXyzPointsIterCallback
-   */
-  typedef void (*InnoDataPacketXyzPointsIterCallback)(void *ctx, const InnoDataPacket &pkt, const InnoXyzPoint &pt);
-
  private:
   static int init_;
   static int v_angle_offset_[INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD][kInnoChannelNumber];
@@ -222,7 +210,6 @@ class InnoDataPacketUtils {
   static const uint32_t kHRobinTableEffeHalfSize_ = 27;
   static const uint32_t kXYZSize_ = 3;
   static const uint32_t kRobinWScanlines_ = 192;
-  static const uint32_t kRobinEScanlines_ = 128;
   static const uint32_t kRobinWDistSize_ = 8;
   static const uint32_t kRobinDist_[kRobinWDistSize_-1];
   static const uint32_t kRobinEliteScanlines_ = 96;
@@ -283,7 +270,8 @@ class InnoDataPacketUtils {
    * @param full The angles to be populated
    * @param b    The block header
    */
-  static inline void get_block_full_angles(InnoBlockFullAngles *full, const InnoBlockHeader &b,
+  template <typename BlockHeaderType>
+  static inline void get_block_full_angles(InnoBlockFullAngles *full, const BlockHeaderType &b,
                                            InnoItemType type = INNO_ITEM_TYPE_SPHERE_POINTCLOUD) {
     full->angles[0].h_angle = b.h_angle;
     full->angles[0].v_angle = b.v_angle;
@@ -296,36 +284,38 @@ class InnoDataPacketUtils {
   }
 
   /**
-   * @brief Populate the points angles from the block header
+   * @brief hummbird populate the points angles from the block header
    * @param full The angles to be populated
    * @param b    The block header
    */
-  static inline void get_block_full_angles(InnoBlockFullAngles *full, const InnoEnBlockHeader &b,
-                                           InnoItemType type) {
-    full->angles[0].h_angle = b.h_angle;
-    full->angles[0].v_angle = b.v_angle;
-    full->angles[1].h_angle = b.h_angle + b.h_angle_diff_1;
-    full->angles[1].v_angle = b.v_angle + b.v_angle_diff_1 + v_angle_offset_[type][1];
-    full->angles[2].h_angle = b.h_angle + b.h_angle_diff_2;
-    full->angles[2].v_angle = b.v_angle + b.v_angle_diff_2 + v_angle_offset_[type][2];
-    full->angles[3].h_angle = b.h_angle + b.h_angle_diff_3;
-    full->angles[3].v_angle = b.v_angle + b.v_angle_diff_3 + v_angle_offset_[type][3];
+  template <typename TableType>
+  static inline void get_block_full_angles_impl(InnoCoBlockFullAngles *full, const InnoCoBlockHeader &b,
+                                                const char *anglehv_table) {
+    TableType table = reinterpret_cast<TableType>(*const_cast<char *>(anglehv_table));
+    int scan_id = b.scan_id;
+    int scan_idx = b.scan_idx;
+
+    for (int r = 0; r < kMaxReceiverInSet; r++) {
+      full->angles[r].h_angle = table[scan_id][scan_idx + r].h;
+      full->angles[r].v_angle = table[scan_id][scan_idx + r].v;
+    }
   }
 
   /**
-   * Calculates the full angles for a given block header and anglehv table.
-   *
-   * @param full Pointer to the InnoCoBlockFullAngles structure to store the calculated angles.
-   * @param b The InnoCoBlockHeader containing the block information.
-   * @param type The InnoItemType specifying the type of item.
-   * @param anglehv_table The anglehv table used for angle calculations.
+   * @brief Interpolate the angles for robin
+   * @param full The angles to be populated
+   * @param b    The block header
+   * @param anglehv_table The anglehv table used for angle calculations
+   * @param max_set_number The maximum number of sets in the table
    */
-  static inline void get_block_full_angles(InnoCoBlockFullAngles *full, const InnoCoBlockHeader &b, InnoItemType type,
-                                           const char *anglehv_table) {
+  template <typename TableType>
+  static inline void get_block_full_angles_interpolate_impl(InnoCoBlockFullAngles *full, const InnoCoBlockHeader &b,
+                                                            const char *anglehv_table, int max_set_number) {
     // p_angle is the polygon angle, range from 0 ~ 90 degree,unit is kInnoInvalidAngleInUnit
     int polygon_mod = b.p_angle;
     int facet_num = b.facet;
-    int set_num = b.scan_id;
+    // elite inset line b.scan_id is >= max_set_number
+    int set_num = b.scan_id % max_set_number;
     int h_offset_total = polygon_mod - kPolygonMinAngle;
     if (h_offset_total < 0) {
       h_offset_total = 0;
@@ -339,23 +329,12 @@ class InnoDataPacketUtils {
       h_idx = kPolygonTableSize - 2;
     }
 
-    int max_set_number = kInnoRobinWMaxSetNumber;
-    AngleHV *b1, *b2;
-    if (type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
-      using RELiteAnglehvTable =
-        AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinELiteMaxSetNumber][kMaxReceiverInSet];
-      RELiteAnglehvTable table = reinterpret_cast<RELiteAnglehvTable>(*const_cast<char *>((anglehv_table)));
-      max_set_number = kInnoRobinELiteMaxSetNumber;
-      b1 = &table[facet_num][h_idx][set_num][0];
-    } else {
-      using RWAngleHvTable =
-        AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinWMaxSetNumber][kMaxReceiverInSet];
-      RWAngleHvTable table = reinterpret_cast<RWAngleHvTable>(*const_cast<char *>((anglehv_table)));
-      b1 = &table[facet_num][h_idx][set_num][0];
-    }
+    TableType table = reinterpret_cast<TableType>(*const_cast<char *>(anglehv_table));
+    AngleHV *b1 = &table[facet_num][h_idx][set_num][0];
+
     // Perform interpolation for each receiver
     for (int r = 0; r < kMaxReceiverInSet; r++, b1++) {
-      b2 = b1 + max_set_number * kMaxReceiverInSet;
+      AngleHV *b2 = b1 + max_set_number * kMaxReceiverInSet;
 
       int32_t v;
       v = b1->h * h_offset2 + b2->h * h_offset;
@@ -363,6 +342,46 @@ class InnoDataPacketUtils {
 
       v = b1->v * h_offset2 + b2->v * h_offset;
       full->angles[r].v_angle = v >> kEncoderTableShift;
+      // only for elite inset line mode
+      if (b.scan_id >= max_set_number) {
+#define ROBIN_E1X_V_RES 18  //   0.2 / 2 * kInnoAngleUnitPerDegree
+        full->angles[r].v_angle = full->angles[r].v_angle + ROBIN_E1X_V_RES;
+      }
+    }
+  }
+
+  /**
+   * Calculates the full angles for a given block header and anglehv table.
+   *
+   * @param full Pointer to the InnoCoBlockFullAngles structure to store the calculated angles.
+   * @param b The InnoCoBlockHeader containing the block information.
+   * @param type The InnoItemType specifying the type of item.
+   * @param anglehv_table The anglehv table used for angle calculations.
+   */
+  static inline void get_block_full_angles(InnoCoBlockFullAngles *full, const InnoCoBlockHeader &b, InnoItemType type,
+                                           const char *anglehv_table) {
+    switch (type) {
+      case INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD: {
+        using TableType = AngleHV(&)[kHBVTableSize][kHBHTableSize];
+        get_block_full_angles_impl<TableType>(full, b, anglehv_table);
+        break;
+      }
+
+      case INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD: {
+        using TableType =
+            AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinELiteMaxSetNumber][kMaxReceiverInSet];
+        get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinELiteMaxSetNumber);
+        break;
+      }
+
+      case INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD: {
+        using TableType = AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinWMaxSetNumber][kMaxReceiverInSet];
+        get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinWMaxSetNumber);
+        break;
+      }
+
+      default:
+        break;
     }
   }
 
@@ -372,8 +391,8 @@ class InnoDataPacketUtils {
    * @param angle point angle
    * @return Return true if the point is valid, false otherwise
    */
-  static inline bool is_robinw_inside_fov_point(InnoBlockAngles angle) {
-    // FOV: -60 ~ 60, -55 ~ 15
+  static inline bool is_robin_inside_fov_point(InnoBlockAngles angle) {
+    // FOV: -60 ~ 60
     static int fov_top_left_angle = -60.0 * kInnoAngleUnitPerDegree;
     static int fov_top_right_angle = 60.0 * kInnoAngleUnitPerDegree;
 
@@ -384,6 +403,27 @@ class InnoDataPacketUtils {
     }
   }
 
+  static inline bool is_hb_inside_fov_point(InnoBlockAngles angle) {
+    // FOV for hummingbird: -70 ~ 70, -47.5 ~ 47.5
+    static int fov_top_left_angle = -70.0 * kInnoAngleUnitPerDegree;
+    static int fov_top_right_angle = 70.0 * kInnoAngleUnitPerDegree;
+    static int fov_top_low_angle = -47.5 * kInnoAngleUnitPerDegree;
+    static int fov_top_high_angle = 47.5 * kInnoAngleUnitPerDegree;
+    if (angle.h_angle < fov_top_left_angle || angle.h_angle > fov_top_right_angle ||
+        angle.v_angle < fov_top_low_angle || angle.v_angle > fov_top_high_angle) {
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  static inline bool is_inside_fov_point(InnoBlockAngles angle, InnoItemType type) {
+    if (type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      return is_hb_inside_fov_point(angle);
+    } else {
+      return is_robin_inside_fov_point(angle);
+    }
+  }
 
 /**
  * @brief check if the point is pin scanline
@@ -525,7 +565,7 @@ class InnoDataPacketUtils {
     if (type == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD) {
       scan_id = block.scan_id;
       get_xyzr_meter(angles, cp.radius, channel, &xyzr, type);
-    } else if (type == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD || type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD) {
+    } else if (type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD) {
       DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(type);
       int index = block.scan_id * 4 + channel;
       scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
@@ -564,6 +604,9 @@ class InnoDataPacketUtils {
     uint32_t scan_id = 0;
     DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(type);
     int index = block.scan_id * kMaxReceiverInSet + channel;
+    if (type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      index = (block.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
+    }
     scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
     get_xyzr_meter(angles, cp.radius, scan_id, &xyzr, type, cp.firing);
     if (vehicle_coordinate_ == 1) {
@@ -577,8 +620,17 @@ class InnoDataPacketUtils {
     }
     pt->radius = xyzr.radius;
     pt->ts_10us = block.ts_10us;
-    pt->scan_idx = block.scan_idx;
-    pt->scan_id = scan_id;
+    if (type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      pt->scan_idx = block.scan_idx + channel;
+      pt->scan_id = block.scan_id;
+    } else if (type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      pt->scan_idx = block.scan_idx;
+      pt->scan_id = scan_id + (block.scan_id / kInnoRobinELiteMaxSetNumber) *
+                                96;  // scan_id >= kInnoRobinELiteMaxSetNumber, means inset points
+    } else {
+      pt->scan_idx = block.scan_idx;
+      pt->scan_id = scan_id;
+    }
     pt->in_roi = block.in_roi;
     pt->facet = block.facet;
     pt->reflectance = cp.refl;
@@ -586,37 +638,6 @@ class InnoDataPacketUtils {
     pt->channel = channel;
     pt->is_2nd_return = cp.is_2nd_return;
     pt->firing = cp.firing;
-  }
-
-  /**
-   * @brief Enumerate each point in the data packet and make callback,
-            only apply to INNO_ITEM_TYPE_SPHERE_POINTCLOUD
-   * @param pkt Data packet
-   * @param callback Callback
-   * @param ctx Callback context
-   * @return number of points in the data packet.
-   */
-  static inline ssize_t iterate_cpoints(const InnoDataPacket &pkt, InnoDataPacketPointsIterCallback callback,
-                                        void *ctx) {
-    inno_log_verify(pkt.type == INNO_ITEM_TYPE_SPHERE_POINTCLOUD, "invalid pkt type %u", pkt.type);
-    size_t pcount = 0;
-    ITERARATE_INNO_DATA_PACKET_CPOINTS(callback, ctx, &pkt, pcount);
-    return pcount;
-  }
-
-  /**
-   * @brief Enumerate each point in the data packet and make callback,
-            only apply to XYZ_POINTCLOUD
-   * @param pkt Data packet
-   * @param callback Callback
-   * @param ctx Callback context
-   * @return number of points in the data packet.
-   */
-  static inline ssize_t iterate_xyz_points(const InnoDataPacket &pkt, InnoDataPacketXyzPointsIterCallback callback,
-                                           void *ctx) {
-    inno_log_verify(CHECK_XYZ_POINTCLOUD_DATA(pkt.type), "invalid pkt type %u", pkt.type);
-    ITERARATE_INNO_DATA_PACKET_XYZ_POINTS(callback, ctx, &pkt);
-    return pkt.item_number;
   }
 
   /**
@@ -643,6 +664,7 @@ class InnoDataPacketUtils {
       break;
     case INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD:
+    case INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD:
       if (mode == INNO_MULTIPLE_RETURN_MODE_SINGLE) {
         unit_size = sizeof(InnoCoBlock1);
       } else if (mode == INNO_MULTIPLE_RETURN_MODE_2_STRONGEST ||
@@ -667,10 +689,10 @@ class InnoDataPacketUtils {
         return 0;
       }
       break;
-    case INNO_ROBINE_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD:
       unit_size = sizeof(InnoEnXyzPoint);
       break;
     default:
@@ -912,7 +934,6 @@ class InnoPacketReader {
    * @return  Return 0 if crc32 is correct, others for error
    */
   static int verify_http_crc32(const char *buffer, const char *url);
-};
 };
 
 /**

@@ -345,9 +345,9 @@ void InnoDataPacketUtils::get_xyzr_meter(const InnoBlockAngles angles, const uin
     // inno_log_debug("adjust %f %f", x_adj, z_adj);
     result->x += x_adj;
     result->z += z_adj;
-  } else if (type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || type == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD ||
-             type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-             type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+  } else if (type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+    return;  // no adjustment for HB compact pointcloud
+  } else if (type == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || CHECK_CO_SPHERE_POINTCLOUD_DATA(type)) {
     double adj[3];
     lookup_xyz_adjustment_(angles, channel, radius_unit, firing, adj, type);
     result->x += adj[0];
@@ -417,6 +417,9 @@ bool InnoDataPacketUtils::convert_to_xyz_pointcloud(const InnoDataPacket &src, I
   } else if (src.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
     dest->type = INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD;
     dest->item_size = sizeof(InnoEnXyzPoint);
+  } else if (src.type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+    dest->type = INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD;
+    dest->item_size = sizeof(InnoEnXyzPoint);
   } else {
     dest->type = src.type + 1;  // robin & falconIII InnoItemType xyz = sphere+1
     dest->item_size = sizeof(InnoEnXyzPoint);
@@ -467,8 +470,7 @@ bool InnoDataPacketUtils::convert_to_xyz_pointcloud(const InnoDataPacket &src, I
 
     if (src.type == INNO_ITEM_TYPE_SPHERE_POINTCLOUD) {
       ITERARATE_INNO_DATA_PACKET_CPOINTS(CONVERT_FN, NULL, &src, dummy_count);
-    } else if (src.type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-               src.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+    } else if (CHECK_CO_SPHERE_POINTCLOUD_DATA(src.type)) {
       ITERARATE_INNO_DATA_PACKET_CO_CPOINTS(CONVERT_EN_FN, NULL, &src, dummy_count, hvangle_table);
     } else {
       ITERARATE_INNO_DATA_PACKET_EN_CPOINTS(CONVERT_EN_FN, NULL, &src, dummy_count);
@@ -542,6 +544,7 @@ bool InnoDataPacketUtils::check_data_packet(const InnoDataPacket &pkt, size_t si
     case INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD:
       if (pkt.item_size != sizeof(InnoEnXyzPoint)) {
         inno_log_warning("bad InnoEnXyzPoint item size %u", pkt.item_size);
         return false;
@@ -549,6 +552,7 @@ bool InnoDataPacketUtils::check_data_packet(const InnoDataPacket &pkt, size_t si
       break;
     case INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD:
+    case INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD:
       if (pkt.multi_return_mode == INNO_MULTIPLE_RETURN_MODE_SINGLE) {
         if (pkt.item_size != sizeof(InnoCoBlock1)) {
           inno_log_warning("bad block1 item size %u, sizeof(InnoEnBlock1): %" PRI_SIZELU, pkt.item_size,
@@ -613,7 +617,7 @@ bool InnoDataPacketUtils::check_data_packet(const InnoDataPacket &pkt, size_t si
       return false;
     }
     return true;
-  } else if (pkt.type == INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE || pkt.type == INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE) {
+  } else if (CHECK_ANGLEHV_TABLE_DATA(pkt.type)) {
     if (!InnoPacketReader::verify_packet_crc32(&pkt.common)) {
       inno_log_warning("crc32 mismatch for INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE packet");
       return false;

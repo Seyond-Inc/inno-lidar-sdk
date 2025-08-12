@@ -139,6 +139,16 @@ int inno_lidar_get_anglehv_table(int handle, InnoDataPacket *anglehv_table) {
   }
 }
 
+int inno_lidar_set_anglehv_table(int handle, const InnoDataPacket *anglehv_table) {
+  inno_log_verify(anglehv_table, "NULL pointer");
+  InnoLidarBase *l = InnoLidarBase::find_lidar(handle);
+  if (l) {
+    return l->set_anglehv_table(anglehv_table);
+  } else {
+    return 1;
+  }
+}
+
 int inno_lidar_set_attribute_string(int handle, const char *attribute, const char *buf) {
   inno_log_verify(attribute, "NULL pointer");
   inno_log_verify(buf, "NULL pointer");

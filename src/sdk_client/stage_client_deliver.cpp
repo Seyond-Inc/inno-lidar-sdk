@@ -100,8 +100,7 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
         uint64_t point_count_2nd_return = 0;
 
         // get anglehv_table
-        if ((data_packet->type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-             data_packet->type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) && !lidar_->anglehv_init_) {
+        if ((CHECK_CO_SPHERE_POINTCLOUD_DATA(data_packet->type)) && !lidar_->anglehv_init_) {
           char *table = new char[kInnoAngleHVTableMaxSize];
           lidar_->get_anglehv_table(reinterpret_cast<InnoDataPacket *>(table));
           delete[] table;

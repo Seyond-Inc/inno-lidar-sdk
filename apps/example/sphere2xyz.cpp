@@ -221,10 +221,17 @@ void CallbackProcessor::co_block_to_xyz_point(const InnoDataPacket &pkt, std::ve
         const InnoCoChannelPoint &pt = block->points[innocoblock_get_idx(channel, m)];
         InnoXyzrD xyzr;
         uint32_t scan_id = 0;
-        if (pt.radius > 0 && InnoDataPacketUtils::is_robinw_inside_fov_point(full_angles.angles[channel])) {
-          DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
-          int index = block->header.scan_id * kMaxReceiverInSet + channel;
-          scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+        uint32_t scan_idx = block->header.scan_idx;
+        if (pt.radius > 0 && InnoDataPacketUtils::is_inside_fov_point(full_angles.angles[channel],
+                                                                      static_cast<InnoItemType>(pkt.type))) {
+          if (pkt.type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+            scan_id = block->header.scan_id;
+            scan_idx += channel;
+          } else {
+            DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
+            int index = block->header.scan_id * kMaxReceiverInSet + channel;
+            scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+          }
           InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
                                               static_cast<InnoItemType>(pkt.type), pt.firing);
 
@@ -237,7 +244,7 @@ void CallbackProcessor::co_block_to_xyz_point(const InnoDataPacket &pkt, std::ve
           pcd_point.confid_level = pkt.confidence_level;
           pcd_point.timestamp = frame_timestamp_sec + block->header.ts_10us / k10UsInSecond;
           pcd_point.scanline = scan_id;
-          pcd_point.scan_idx = block->header.scan_idx;
+          pcd_point.scan_idx = scan_idx;
 
           frame_data.emplace_back(pcd_point);
         }
@@ -312,8 +319,7 @@ int CallbackProcessor::process_data(int handler, const InnoDataPacket &pkt) {
 
   if (pkt.type == INNO_ITEM_TYPE_SPHERE_POINTCLOUD) {
     block_to_xyz_point(pkt, frame_data_, unit_size, return_number);
-  } else if (pkt.type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-             pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+  } else if (CHECK_CO_SPHERE_POINTCLOUD_DATA(pkt.type)) {
     if (anglehv_table_ == nullptr) {
       // get anglehv table, which is used to calculate the angle of each point
       // different lidar have different anglehv table

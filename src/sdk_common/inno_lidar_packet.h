@@ -36,8 +36,8 @@
  * SDK VERSION
  *****************/
 #define INNO_SDK_V_MAJOR "3"
-#define INNO_SDK_V_MINOR "102"
-#define INNO_SDK_V_DOT "13"
+#define INNO_SDK_V_MINOR "103"
+#define INNO_SDK_V_DOT "1"
 #define INNO_SDK_VERSION_IN_HEADER INNO_SDK_V_MAJOR "." INNO_SDK_V_MINOR "." INNO_SDK_V_DOT "."
 
 /************
@@ -190,13 +190,22 @@ enum InnoItemType {
   INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD = 15,
   // ROBINELITE COMPACT POINTCLOUD, InnoCoPoint
   INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD = 16,
+
+  // HUMMINGBIRD SPHERE POINTCLOUD
+  INNO_HB_ITEM_TYPE_SPHERE_POINTCLOUD = 20,
+  // HUMMINGBIRD SPHERE POINTCLOUD, InnoEnXyzPoint
+  INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD = 21,
+  // HUMMINGBIRD COMPACT POINTCLOUD, InnoCoPoint
+  INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD = 22,
+
   // ROBINW AngleHV TABLE
   INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE = 100,
   // ROBINELITE AngleHV TABLE
   INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE = 101,
   // RingId Table
   INNO_FALCON_RING_ID_TABLE = 102,
-
+  // HUMMINGBIRD AngleHV TABLE
+  INNO_HB_ITEM_TYPE_ANGLEHV_TABLE = 103,
   INNO_ITEM_TYPE_MAX = 103,
 };
 
@@ -239,6 +248,8 @@ enum InnoLidarType {
   INNO_LIDAR_TYPE_FALCONK2 = 3,        // FalconK2
   INNO_LIDAR_TYPE_FALCONIII = 4,
   INNO_LIDAR_TYPE_ROBINELITE = 5,
+  INNO_LIDAR_TYPE_ROBINE2 = 6,
+  INNO_LIDAR_TYPE_HB = 7,
 };
 
 enum InnoDistanceUnitPerMeter {
@@ -306,13 +317,14 @@ static const int kEncoderTableStep = 1 << kEncoderTableShift;
 static const int kEncoderTableMask = kEncoderTableStep - 1;
 static const int kPolygonTableSize = ((kPolygonMaxAngle - kPolygonMinAngle) >> kEncoderTableShift) + 1;
 static const int kMaxReceiverInSet = kInnoCompactChannelNumber;
-
+static const int kHBHTableSize = 256;
+static const int kHBVTableSize = 192;
 static const int kInnoBaseFaultEnd = 64;
 static const double kInnoNopROI = 10000.0;
 
 static const uint8_t kInnoAngleHVTableVersionMajor = 0;
 static const uint8_t kInnoAngleHVTableVersionMinor = 1;
-static const uint32_t kInnoAngleHVTableMaxSize = 120000;
+static const uint32_t kInnoAngleHVTableMaxSize = 2000000;
 enum InputSource {
   SOURCE_NO = 0,
   SOURCE_FILE,
@@ -767,6 +779,14 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoRobinELiteAngleHVTable) {
   AngleHV table[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinELiteMaxSetNumber][kMaxReceiverInSet];
   uint8_t reserved[512];
 } InnoRobinELiteAngleHVTable;
+DEFINE_INNO_COMPACT_STRUCT_END
+
+typedef DEFINE_INNO_COMPACT_STRUCT(InnoHbAngleHVTable) {
+  InnoAngleHVTableVersion version_number;
+  uint64_t id;
+  AngleHV table[kHBVTableSize][kHBHTableSize];
+  uint8_t reserved[512];
+} InnoHbAngleHVTable;
 DEFINE_INNO_COMPACT_STRUCT_END
 
 /*

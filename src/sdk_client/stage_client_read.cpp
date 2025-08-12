@@ -612,7 +612,7 @@ int FileInput::read_packet_(InnoDataPacket *data_packet, size_t *data_len, InnoD
       }
       *message_len = header.size;
       *message_packet = dp;
-    } else if (dp.type == INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE || dp.type == INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE) {
+    } else if (CHECK_ANGLEHV_TABLE_DATA(dp.type)) {
       *lidar_->anglehv_table_ = dp;
       to_read = header.size - sizeof(InnoDataPacket);
       *data_len = 0;

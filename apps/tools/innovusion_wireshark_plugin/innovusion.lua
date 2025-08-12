@@ -141,6 +141,10 @@ do
     --rw_generic
     field_bh_p_angle_diff_rw_generic = ProtoField.int16("Innovusion", "p_angle", base.DEC, nil, nil, "")
     field_bh_g_angle_diff_rw_generic = ProtoField.int16("Innovusion", "g_angle", base.DEC, nil, nil, "")
+    field_cbh_scan_id = ProtoField.uint16("Innovusion", "scan_id", base.DEC, nil, 0x01FF, "id of the scan line")
+    field_cbh_in_roi = ProtoField.uint16("Innovusion", "in_roi", base.DEC, nil, 0x0600, "")
+    field_cbh_facet = ProtoField.uint16("Innovusion", "facet", base.DEC, nil, 0x3800, "")
+    field_cbh_reserved_flags = ProtoField.uint16("Innovusion", "reserved_flags", base.DEC, nil, 0xC000, "all 0")
 
     --end
     --
@@ -151,10 +155,10 @@ do
     function InnoBlockHeader_dissector(buf,pkt,parent)
         if is_falcon_igk == true then
             m = parent:add("InnoBlockHeader", buf(0,17))
-        elseif is_robinw_generic == true then
+        elseif is_generic_lidar == true then
             m = parent:add("InnoCoBlockHeader", buf(0,10))
         else
-            m = parent:add("InnoBlockHeader", buf(0,18))
+            m = parent:add("InnoEnBlockHeader", buf(0,18))
         end
 
 
@@ -181,15 +185,15 @@ do
             m:add_le(field_bh_in_roi, buf(16,1))
             m:add_le(field_bh_facet, buf(16,1))
             m:add_le(field_bh_reserved_flags, buf(16,1))
-        elseif is_robinw_generic == true then
+        elseif is_generic_lidar == true then
             m:add_le(field_bh_p_angle_diff_rw_generic, buf(0,2))
             m:add_le(field_bh_g_angle_diff_rw_generic, buf(2,2))
             m:add_le(field_bh_ts_10us, buf(4,2))
             m:add_le(field_bh_scan_idx, buf(6,2))
-            m:add_le(field_bh_scan_id, buf(8,2))
-            m:add_le(field_bh_in_roi, buf(8,2))
-            m:add_le(field_bh_facet, buf(8,2))
-            m:add_le(field_bh_reserved_flags, buf(8,2))
+            m:add_le(field_cbh_scan_id, buf(8,2))
+            m:add_le(field_cbh_in_roi, buf(8,2))
+            m:add_le(field_cbh_facet, buf(8,2))
+            m:add_le(field_cbh_reserved_flags, buf(8,2))
         else
             m:add_le(field_bh_h_angle, buf(0,2))
             m:add_le(field_bh_v_angle, buf(2,2))
@@ -207,10 +211,10 @@ do
 
             m:add_le(field_bh_scan_idx, buf(14,2))
 
-            m:add_le(field_bh_scan_id, buf(16,2))
-            m:add_le(field_bh_in_roi, buf(16,2))
-            m:add_le(field_bh_facet, buf(16,2))
-            m:add_le(field_bh_reserved_flags, buf(16,2))
+            m:add_le(field_cbh_scan_id, buf(16,2))
+            m:add_le(field_cbh_in_roi, buf(16,2))
+            m:add_le(field_cbh_facet, buf(16,2))
+            m:add_le(field_cbh_reserved_flags, buf(16,2))
         end
     end
 
@@ -298,7 +302,7 @@ do
             m:add_le(field_channel_is_2nd_return,buf(0,4))
             m:add_le(field_channel_type,buf(0,4))
             m:add_le(field_channel_elongation,buf(0,4))
-        elseif is_robinw_generic == true then
+        elseif is_generic_lidar == true then
             local m = parent:add("InnoCoChannelPoint[" .. tostring(index) .. "]")
             m:add_le(field_channel_radius_rw_generic, buf(0,4))
             m:add_le(field_channel_refl_rw_generic, buf(0,4))
@@ -359,7 +363,7 @@ do
             for i=0,3,1 do
                 InnoChannelPoint_dissector(buf(17 + i * 4, 4), pkt, m, i)
             end
-        elseif is_robinw_generic == true then
+        elseif is_generic_lidar == true then
             local m = parent:add("InnoCoBlock1[" .. tostring(index) .. "]")
             InnoBlockHeader_dissector(buf(0,10),pkt,m)
             for i=0,7,1 do
@@ -385,7 +389,7 @@ do
             for i=0,7,1 do
                 InnoChannelPoint_dissector(buf(17 + i * 4, 4), pkt, m, i)
             end
-        elseif is_robinw_generic == true then
+        elseif is_generic_lidar == true then
             local m = parent:add("InnoCoBlock2[" .. tostring(index) .. "]")
             InnoBlockHeader_dissector(buf(0,10),pkt,m)
             for i=0,15,1 do
@@ -1009,15 +1013,29 @@ do
     local field_extend_reserved3 = ProtoField.uint32("Innovusion", "extend_reserved[3]", base.DEC, nil, nil, "")
 
     local field_infaults = {}
+    local field_exfaults = {}
 
     for i = 0, 95 do
         local bit_index = i % 8
-        local byte_index = math.floor(i / 8)
         local bit_mask = 2^bit_index
     
-        field_infaults[i+1] = ProtoField.uint8(
+        field_infaults[i] = ProtoField.uint8(
             "Innovusion",
             string.format("FAULT_%02d", i),
+            base.DEC,
+            nil,
+            bit_mask,
+            ""
+        )
+    end
+
+    for i = 0, 31 do
+        local bit_index = i % 8
+        local bit_mask = 2^bit_index
+    
+        field_exfaults[i] = ProtoField.uint8(
+            "Innovusion",
+            string.format("FAULT_%02d", i+96),
             base.DEC,
             nil,
             bit_mask,
@@ -1031,9 +1049,20 @@ do
     
         for i = 0, 95 do
             local byte_index = math.floor(i / 8)
-            h:add_le(field_infaults[i+1], buf(byte_index, 1))
+            h:add_le(field_infaults[i], buf(byte_index, 1))
         end
     end
+
+    -- 32 32/8=4bytes
+    function InnoStatusExFaults_dissector(buf, pkt, parent)
+        local h = parent:add("InnoStatusExFaults")
+    
+        for i = 0, 31 do
+            local byte_index = math.floor(i / 8)
+            h:add_le(field_exfaults[i], buf(byte_index, 1))
+        end
+    end
+
 
     -- DEFINE_INNO_COMPACT_STRUCT(InnoStatusCounters) {
     --     uint64_t point_data_packet_sent;
@@ -1398,8 +1427,6 @@ do
     local field_status_interval_ms = ProtoField.uint8("Innovusion", "status_packet_interval_ms", base.DEC, nil, nil, "status packet send interval in ms")
     local field_status_pre_lidar_mode = ProtoField.uint8("Innovusion", "pre_lidar_mode", base.DEC, nil, nil, "previous InnoLidarMode")
     local field_status_in_transition_mode_ms = ProtoField.uint16("Innovusion", "in_transition_mode_ms", base.DEC, nil, nil, "time (ms), LiDAR in the transition mode")
-    -- InnoStatusExFaults
-    local field_status_ex_fault = ProtoField.uint64("Innovusion", "ex_faults", base.HEX, nil, nil, "")
 
     local field_status_sn = ProtoField.string("Innovusion", "sn", base.ASCII, nil, nil, "lidar serial number")
     local field_status_fault_version = ProtoField.uint16("Innovusion", "fault_version", base.DEC, nil, nil, "")
@@ -1447,8 +1474,8 @@ do
             -- in fault
         InnoStatusInFaults_dissector(buf(70,12), pkt, parent)
 
-            -- out fault:no use
-        parent:add_le(field_status_ex_fault,buf(82,4))
+            -- ex fault
+        InnoStatusExFaults_dissector(buf(82,4), pkt, parent)
 
             -- counters
         InnoStatusCounters_dissector(buf(86,320), pkt, parent)
@@ -1495,20 +1522,25 @@ do
         field_status_index, field_status_interval_ms, field_status_pre_lidar_mode, field_status_in_transition_mode_ms,
         field_status_sn, field_status_fault_version, field_status_ref_count_enough_ts_ms, field_status_ref_intensity0, field_status_ref_intensity1,
         field_status_hw_num0, field_status_hw_num1, field_status_hw_num2,
-        field_status_ref_intensity2, field_status_ref_intensity3, field_status_reserved, field_status_ex_fault,
+        field_status_ref_intensity2, field_status_ref_intensity3, field_status_reserved,
 
-        field_infaults[1], field_infaults[2], field_infaults[3], field_infaults[4], field_infaults[5], field_infaults[6], field_infaults[7], field_infaults[8], 
-        field_infaults[9], field_infaults[10], field_infaults[11], field_infaults[12], field_infaults[13], field_infaults[14], field_infaults[15], field_infaults[16],
-        field_infaults[17], field_infaults[18], field_infaults[19], field_infaults[20], field_infaults[21], field_infaults[22], field_infaults[23], field_infaults[24],
-        field_infaults[25], field_infaults[26], field_infaults[27], field_infaults[28], field_infaults[29], field_infaults[30], field_infaults[31], field_infaults[32],
-        field_infaults[33], field_infaults[34], field_infaults[35], field_infaults[36], field_infaults[37], field_infaults[38], field_infaults[39], field_infaults[40],
-        field_infaults[41], field_infaults[42], field_infaults[43], field_infaults[44], field_infaults[45], field_infaults[46], field_infaults[47], field_infaults[48],
-        field_infaults[49], field_infaults[50], field_infaults[51], field_infaults[52], field_infaults[53], field_infaults[54], field_infaults[55], field_infaults[56],
-        field_infaults[57], field_infaults[58], field_infaults[59], field_infaults[60], field_infaults[61], field_infaults[62], field_infaults[63], field_infaults[64],
-        field_infaults[65], field_infaults[66], field_infaults[67], field_infaults[68], field_infaults[69], field_infaults[70], field_infaults[71], field_infaults[72],
-        field_infaults[73], field_infaults[74], field_infaults[75], field_infaults[76], field_infaults[77], field_infaults[78], field_infaults[79], field_infaults[80],
-        field_infaults[81], field_infaults[82], field_infaults[83], field_infaults[84], field_infaults[85], field_infaults[86], field_infaults[87], field_infaults[88],
-        field_infaults[89], field_infaults[90], field_infaults[91], field_infaults[92], field_infaults[93], field_infaults[94], field_infaults[95], field_infaults[96],
+        field_infaults[0], field_infaults[1], field_infaults[2], field_infaults[3], field_infaults[4], field_infaults[5], field_infaults[6], field_infaults[7],
+        field_infaults[8], field_infaults[9], field_infaults[10], field_infaults[11], field_infaults[12], field_infaults[13], field_infaults[14], field_infaults[15],
+        field_infaults[16], field_infaults[17], field_infaults[18], field_infaults[19], field_infaults[20], field_infaults[21], field_infaults[22], field_infaults[23],
+        field_infaults[24], field_infaults[25], field_infaults[26], field_infaults[27], field_infaults[28], field_infaults[29], field_infaults[30], field_infaults[31],
+        field_infaults[32], field_infaults[33], field_infaults[34], field_infaults[35], field_infaults[36], field_infaults[37], field_infaults[38], field_infaults[39],
+        field_infaults[40], field_infaults[41], field_infaults[42], field_infaults[43], field_infaults[44], field_infaults[45], field_infaults[46], field_infaults[47],
+        field_infaults[48], field_infaults[49], field_infaults[50], field_infaults[51], field_infaults[52], field_infaults[53], field_infaults[54], field_infaults[55],
+        field_infaults[56], field_infaults[57], field_infaults[58], field_infaults[59], field_infaults[60], field_infaults[61], field_infaults[62], field_infaults[63],
+        field_infaults[64], field_infaults[65], field_infaults[66], field_infaults[67], field_infaults[68], field_infaults[69], field_infaults[70], field_infaults[71],
+        field_infaults[72], field_infaults[73], field_infaults[74], field_infaults[75], field_infaults[76], field_infaults[77], field_infaults[78], field_infaults[79],
+        field_infaults[80], field_infaults[81], field_infaults[82], field_infaults[83], field_infaults[84], field_infaults[85], field_infaults[86], field_infaults[87],
+        field_infaults[88], field_infaults[89], field_infaults[90], field_infaults[91], field_infaults[92], field_infaults[93], field_infaults[94], field_infaults[95],
+
+        field_exfaults[0], field_exfaults[1], field_exfaults[2], field_exfaults[3], field_exfaults[4], field_exfaults[5], field_exfaults[6], field_exfaults[7], 
+        field_exfaults[8], field_exfaults[9], field_exfaults[10], field_exfaults[11], field_exfaults[12], field_exfaults[13], field_exfaults[14], field_exfaults[15],
+        field_exfaults[16], field_exfaults[17], field_exfaults[18], field_exfaults[19], field_exfaults[20], field_exfaults[21], field_exfaults[22], field_exfaults[23],
+        field_exfaults[24], field_exfaults[25], field_exfaults[26], field_exfaults[27], field_exfaults[28], field_exfaults[29], field_exfaults[30], field_exfaults[31],
 
         ---- status counters
         field_point_data_packet_sent, field_point_sent, field_message_packet_sent, field_raw_data_read, field_total_frame, field_total_polygon_rotation,
@@ -1561,6 +1593,7 @@ do
         field_bh_scan_idx,
 
         field_bh_scan_id,
+        field_cbh_scan_id,
 
         field_bh_h_angle_diff_1,
         field_bh_h_angle_diff_2,
@@ -1585,7 +1618,11 @@ do
 
         field_bh_in_roi,
         field_bh_facet,
-        field_bh_reserved_flags
+        field_bh_reserved_flags,
+
+        field_cbh_in_roi,
+        field_cbh_facet,
+        field_cbh_reserved_flags,
     }
 
 
@@ -1639,7 +1676,7 @@ do
             innoblock1_len = 33
             innoblock2_len = 49
             innoxyzpoint_len = 26
-        elseif is_robinw_generic then
+        elseif is_generic_lidar then
             data_half_len = 70
             innocoblock1_len = 42
             innocoblock2_len = 74
@@ -1714,8 +1751,8 @@ do
         if major_version > 1
         then
             local item_type = buf(38,1):le_uint()
-            if (item_type == 13) then
-                is_robinw_generic = true
+            if (item_type == 13 or item_type == 16) then
+                is_generic_lidar = true
             end
             is_falcon_igk = false
         else

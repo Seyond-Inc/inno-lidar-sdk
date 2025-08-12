@@ -327,6 +327,18 @@ int InnoLidarClient::get_anglehv_table(InnoDataPacket *inno_data) {
   return ret;
 }
 
+int InnoLidarClient::set_anglehv_table(const InnoDataPacket *anglehv_table) {
+  int ret = -1;
+  if (!anglehv_init_ && !is_live_lidar_()) {
+    if (InnoPacketReader::verify_packet_crc32(reinterpret_cast<const InnoCommonHeader *>(anglehv_table))) {
+      anglehv_init_ = true;
+      memcpy(anglehv_table_, anglehv_table, anglehv_table->common.size);
+      ret = 0;
+    }
+  }
+  return ret;
+}
+
 #define SERVER_ATTR_PREFIX "server_"
 int InnoLidarClient::get_attribute(const char *attribute, double *value) {
   inno_log_verify(attribute && value, "%p, %p", attribute, value);

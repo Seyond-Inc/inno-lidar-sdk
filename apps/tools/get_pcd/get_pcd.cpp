@@ -363,8 +363,7 @@ class FileRecorder {
     } else if (file_type_ == FILE_TYPE_INNO_PC_XYZ) {
       if (CHECK_SPHERE_POINTCLOUD_DATA(pkt_in.type)) {
         char *anglehv_table = nullptr;
-        if (pkt_in.type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-            pkt_in.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+        if (CHECK_CO_SPHERE_POINTCLOUD_DATA(pkt_in.type)) {
           anglehv_table = new char[kInnoAngleHVTableMaxSize];
           inno_lidar_get_anglehv_table(g_lidar_handle, reinterpret_cast<InnoDataPacket *>(anglehv_table));
         }
@@ -1047,6 +1046,11 @@ class ExampleProcessor {
     return 0;
   }
 
+  bool can_record_bag() const {
+    inno_log_info("file_type_ = %d", file_type_);
+    return file_type_ == FileRecorder::FILE_TYPE_BAG;
+  }
+
  private:
   inline FileRecorder *get_recorder_(const int64_t frame_id, const bool reflectance, double timestamp = 0) {
     // how many frames we have seen so far?
@@ -1324,12 +1328,19 @@ class ExampleProcessor {
           const InnoCoChannelPoint &pt = block->points[innocoblock_get_idx(channel, m)];
           InnoXyzrD xyzr;
           uint32_t scan_id = 0;
-          if (pt.radius > 0 && InnoDataPacketUtils::is_robinw_inside_fov_point(full_angles.angles[channel])) {
-            DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
-            int index = block->header.scan_id * kMaxReceiverInSet + channel;
-            scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+          uint32_t scan_idx = block->header.scan_idx;
+          if (pt.radius > 0 && InnoDataPacketUtils::is_inside_fov_point(full_angles.angles[channel],
+                                                                        static_cast<InnoItemType>(pkt.type))) {
+            if (pkt.type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
+              scan_id = block->header.scan_id;
+              scan_idx += channel;
+            } else {
+              DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
+              int index = block->header.scan_id * kMaxReceiverInSet + channel;
+              scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+            }
             InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
-                                                static_cast<InnoItemType>(pkt.type), pt.firing);
+              static_cast<InnoItemType>(pkt.type), pt.firing);
             if (force_vehicle_coordinate) {
               x = xyzr.z;
               y = -xyzr.y;
@@ -1350,7 +1361,7 @@ class ExampleProcessor {
               recorder->add_en_points(pkt.idx, x, y, z, h_angle, v_angle, pt.refl, channel, block->header.in_roi,
                                       block->header.facet, m, pkt.confidence_level, pt.firing << 2, 0,
                                       frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id,
-                                      block->header.scan_idx, pt.is_2nd_return, scan_id);
+                                      scan_idx, pt.is_2nd_return, scan_id);
             } else if (recorder_point_type == POINT_TYPE_LITE_PCD) {
               recorder->add_lite_points(x, y, z, pt.refl, pkt.confidence_level,
                                         frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id);
@@ -1358,7 +1369,7 @@ class ExampleProcessor {
               recorder->add_points(pkt.idx, x, y, z, pt.refl, channel, block->header.in_roi, block->header.facet, m,
                                    pkt.confidence_level, pt.firing << 2, 0,
                                    frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id,
-                                   block->header.scan_idx, pt.is_2nd_return, scan_id);
+                                   scan_idx, pt.is_2nd_return, scan_id);
             }
           }
         }
@@ -1453,8 +1464,7 @@ class ExampleProcessor {
 
     if (pkt.type == INNO_ITEM_TYPE_SPHERE_POINTCLOUD) {
       block_to_xyz_point(pkt, recorder, unit_size, return_number);
-    } else if (pkt.type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD ||
-               pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+    } else if (CHECK_CO_SPHERE_POINTCLOUD_DATA(pkt.type)) {
       co_block_to_en_xyz_point(pkt, recorder, unit_size, return_number);
     } else {
       en_block_to_en_xyz_point(pkt, recorder, unit_size, return_number);
@@ -1906,6 +1916,19 @@ int main(int argc, char **argv) {
     param.pcap_param.message_port = lidar_udp_port;
     param.pcap_param.status_port = lidar_udp_port;
     handle = inno_lidar_open_ctx("pcap", &param);
+
+    if (!anghv_table_file.empty()) {
+      static char table[kInnoAngleHVTableMaxSize];
+      std::ifstream ifs(anghv_table_file, std::ios::binary);
+      if (ifs.is_open()) {
+        ifs.read(table, sizeof(InnoDataPacket));
+        uint32_t payload_len = reinterpret_cast<InnoDataPacket *>(table)->common.size - sizeof(InnoDataPacket);
+        ifs.read(table + sizeof(InnoDataPacket), payload_len);
+        ifs.close();
+        ret = inno_lidar_set_anglehv_table(handle, reinterpret_cast<InnoDataPacket *>(table));
+        inno_log_verify(ret == 0, "set anglehv table failed %d", ret);
+      }
+    }
   } else {
     handle = inno_lidar_open_live("live", /* name of lidar instance */
                                   lidar_ip.c_str(), lidar_port,
@@ -1924,6 +1947,10 @@ int main(int argc, char **argv) {
     processor.set_orientation(yaw, pitch, roll);
   }
 
+   // record bag file force use xyz pointcloud
+  if(processor.can_record_bag()) {
+    use_xyz_point = 2;
+  }
   // the code shows 2 ways to process the data callback
   if (use_xyz_point == 1) {
     // callback with INNO_ITEM_TYPE_SPHERE_POINTCLOUD and

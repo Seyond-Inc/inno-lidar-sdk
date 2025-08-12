@@ -310,6 +310,14 @@ INNO_API void inno_lidar_set_log_level(enum InnoLogLevel log_level);
  */
 INNO_API int inno_lidar_get_anglehv_table(int handle, InnoDataPacket *anglehv_table);
 
+
+/*
+ * @brief add lidar anglehv table from external
+ * @param handle Lidar handle
+ * @param anglehv_table Buffer to store the table
+ * @return 0 means success, otherwise failure (e.g. invalid lidar handle)
+ */
+INNO_API int inno_lidar_set_anglehv_table(int handle, const InnoDataPacket *anglehv_table);
 /*
  * @brief Get lidar attribute like frame_rate
  * @param handle Lidar handle

@@ -203,6 +203,12 @@ class InnoLidarClient : public InnoLidarBase {
    */
   int get_anglehv_table(InnoDataPacket *anglehv_table) override;
 
+    /**
+   * @brief set anglehv table from external
+   * @param anglehv_table     Buffer to store table
+   * @return Return 0 for success, others for error
+   */
+  int set_anglehv_table(const InnoDataPacket *anglehv_table) override;
   /**
    * @brief Get attribute from Lidar server
    * @param attribute Name of the attribute

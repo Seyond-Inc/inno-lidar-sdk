@@ -232,6 +232,13 @@ class InnoLidarBase {
    */
   virtual int get_anglehv_table(InnoDataPacket *anglehv_table) = 0;
 
+    /**
+   * @brief set anglehv table from external
+   * @param anglehv_table     Buffer to store table
+   * @return Return 0 for success, others for error
+   */
+  virtual int set_anglehv_table(const InnoDataPacket *anglehv_table) = 0;
+
   /**
    * @brief Get attribute from Lidar server
    * @param attribute Name of the attribute
@@ -626,7 +633,7 @@ class InnoLidarBase {
   InnoDataPacketCallback data_packet_callback_;
   InnoStatusPacketCallback status_packet_callback_;
   InnoHosttimeCallback get_host_time_;
-  InnCallbackDataType callback_data_type_;
+  InnCallbackDataType callback_data_type_{INNO_CALLBACK_SPHERE_PACKET};
   InnoRecorderCallback recorder_callbacks_[INNO_RECORDER_CALLBACK_TYPE_MAX];
   void *recorder_callbacks_context_[INNO_RECORDER_CALLBACK_TYPE_MAX];
   std::mutex recorder_callbacks_mutex_[INNO_RECORDER_CALLBACK_TYPE_MAX];
