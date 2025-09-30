@@ -8,8 +8,9 @@ inno-lidar-sdk is the software development kit to help application developers ea
 + Falcon-K2
 + Falcon-k24
 + Robin-W
-+ Robin-E
 + Robin-ELITE(Robin-E1X)
++ Robin-E2
++ HB-D1
 
 
 # Supported Platforms
