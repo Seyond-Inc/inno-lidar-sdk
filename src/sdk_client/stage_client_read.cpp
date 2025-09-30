@@ -733,7 +733,7 @@ int UdpInput::bind_udp_port_(uint16_t port) {
   return InnoUdpHelper::bind(port, opts);
 }
 
-int UdpInput::read_udp_(int32_t port) {
+int UdpInput::read_udp_(int32_t port, bool message_port_is_separate) {
   int fd = bind_udp_port_(port);
   uint32_t timeout_flag = 1;
   uint32_t eagain_count = 1;
@@ -775,11 +775,12 @@ int UdpInput::read_udp_(int32_t port) {
 #endif
     if (n < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
-        if (eagain_count == timeout_flag) {
+        if (eagain_count == timeout_flag && message_port_is_separate == false) {
           inno_log_info("%s", errno == EAGAIN ?  // EAGAIN means timeout
-                                "EAGAIN"
-                                            : "EWOULDBLOCK");
+                                  "EAGAIN"
+                                              : "EWOULDBLOCK");
           timeout_flag *= 2;
+          inno_log_info("port %d message_port_is_separate %d", port, message_port_is_separate);
         }
         eagain_count++;
         continue;
@@ -858,6 +859,7 @@ int UdpInput::read_data() {
   static const size_t kPortsCount = 3;
   static constexpr int32_t kGetUdpPortIntervalMsArray[5] = {500, 500, 1000, 1500, 2000};
   int32_t ports[kPortsCount];
+  bool message_port_is_separate = false;
   char ip[64] = {0};
   int ret;
   char my_ip[64] = {0};
@@ -877,8 +879,13 @@ int UdpInput::read_data() {
         std::this_thread::sleep_for(std::chrono::milliseconds(kGetUdpPortIntervalMsArray[get_interval_count]));
         get_interval_count += 1;
       } else {
-        inno_log_info("read udps: data:%d message:%d status:%d ip=%s my_ip=%s", ports[0], ports[1], ports[2], ip,
+        inno_log_info("read udps: data:%d status:%d message:%d ip=%s my_ip=%s", ports[0], ports[1], ports[2], ip,
                       my_ip);
+        if (ports[2] != ports[0] && ports[2] != ports[1]) {
+          inno_log_info("message port %d is not same as data port %d and status port %d", ports[2], ports[0],
+                           ports[1]);
+          message_port_is_separate = true;
+        }
         break;
       }
     }
@@ -921,12 +928,12 @@ int UdpInput::read_data() {
       }
     }
   }
-
   std::vector<std::thread *> threads;
 
   for (size_t i = 0; i < kPortsCount; i++) {
     if (ports[i]) {
-      threads.push_back(new std::thread([this, ports, i]() { read_udp_(ports[i]); }));
+      threads.push_back(new std::thread(
+          [this, ports, i, message_port_is_separate]() { read_udp_(ports[i], (2 == i && message_port_is_separate)); }));
     }
   }
 

@@ -28,16 +28,18 @@
 #define CHECK_XYZ_POINTCLOUD_DATA(X)                                                  \
 (X == INNO_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || \
-X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD)
+X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_SPHERE_POINTCLOUD_DATA(X)                                                     \
 (X == INNO_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD || \
-X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD)
+X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD \
+|| X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD)
 
 #define CHECK_EN_XYZ_POINTCLOUD_DATA(X)                                                      \
 (X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || \
-X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD)
+X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD \
+|| X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_EN_SPHERE_POINTCLOUD_DATA(X) \
 (X == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || \
@@ -45,11 +47,11 @@ X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD)
 
 #define CHECK_CO_SPHERE_POINTCLOUD_DATA(X)                                                               \
 (X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD || \
-X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD)
+X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD)
 
 #define CHECK_ANGLEHV_TABLE_DATA(X) \
 (X == INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE || X == INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE || \
-X == INNO_HB_ITEM_TYPE_ANGLEHV_TABLE)
+X == INNO_HB_ITEM_TYPE_ANGLEHV_TABLE || X == INNO_ROBINE2_TYPE_ANGLEHV_TABLE)
 // FUNC is in type InnoDataPacketPointsIterCallback
 #define ITERARATE_INNO_DATA_PACKET_CPOINTS(FUNC, ctx, packet, count)                                            \
   do {                                                                                                          \
@@ -239,11 +241,10 @@ class InnoDataPacketUtils {
    * @param z      Z
    */
   static void lookup_xyz_adjustment_(const InnoBlockAngles &angles, uint32_t scan_id, uint32_t radius_unit,
-                                     uint32_t firing, double adj[], InnoItemType type);
+                                     double adj[], InnoItemType type);
 
  public:
   static const uint32_t RobinWTDCChannelNumber = 48;
-  static const uint32_t RobinETDCChannelNumber = 32;
   static const uint8_t robinw_channel_mapping[48];
   // use first 32 entries for robine
   static const uint8_t robine_channel_mapping[48];
@@ -258,7 +259,6 @@ class InnoDataPacketUtils {
   static int init_f_robin(void);
   static int init_f_falcon(void);
   static void init_robinw_nps_adjustment_();
-  static void init_robinw_nps_adjustment_pin_();
 
   static void init_robinelite_nps_adjustment_();
   static void set_vehicle_coordinate(int8_t value) {
@@ -379,7 +379,11 @@ class InnoDataPacketUtils {
         get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinWMaxSetNumber);
         break;
       }
-
+      case INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD: {
+        using TableType = AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinE2MaxSetNumber][kMaxReceiverInSet];
+        get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinE2MaxSetNumber);
+        break;
+      }
       default:
         break;
     }
@@ -404,11 +408,11 @@ class InnoDataPacketUtils {
   }
 
   static inline bool is_hb_inside_fov_point(InnoBlockAngles angle) {
-    // FOV for hummingbird: -70 ~ 70, -47.5 ~ 47.5
+    // FOV for hummingbird: -70 ~ 70, -50 ~ 50
     static int fov_top_left_angle = -70.0 * kInnoAngleUnitPerDegree;
     static int fov_top_right_angle = 70.0 * kInnoAngleUnitPerDegree;
-    static int fov_top_low_angle = -47.5 * kInnoAngleUnitPerDegree;
-    static int fov_top_high_angle = 47.5 * kInnoAngleUnitPerDegree;
+    static int fov_top_low_angle = -50 * kInnoAngleUnitPerDegree;
+    static int fov_top_high_angle = 50 * kInnoAngleUnitPerDegree;
     if (angle.h_angle < fov_top_left_angle || angle.h_angle > fov_top_right_angle ||
         angle.v_angle < fov_top_low_angle || angle.v_angle > fov_top_high_angle) {
       return false;
@@ -425,22 +429,6 @@ class InnoDataPacketUtils {
     }
   }
 
-/**
- * @brief check if the point is pin scanline
- * @param type point type
- * @param firing strong or weak firing
- * @param scan_id scan id
- * @return true if the point is pin scanline, false otherwise
- */
-  static inline bool is_robinw_pin_scanline(InnoItemType type, uint32_t firing, uint32_t scan_id) {
-  if (type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD && firing == 0 &&
-      (scan_id == 1 || scan_id == 25 || scan_id == 49 || scan_id == 73 || scan_id == 97 || scan_id == 121 ||
-       scan_id == 145 || scan_id == 169)) {
-    return true;
-  } else {
-    return false;
-  }
-}
 
   /**
    * @brief Get the block size in bytes and number of returns in the pkt
@@ -507,7 +495,7 @@ class InnoDataPacketUtils {
    */
   static void get_xyzr_meter(const InnoBlockAngles angles, const uint32_t radius_unit, const uint32_t channel,
                              InnoXyzrD *result, InnoItemType type = INNO_ITEM_TYPE_SPHERE_POINTCLOUD,
-                             uint32_t firing = 1, bool long_distance_mode = false);
+                             bool long_distance_mode = false);
 
   /**
    * @brief convert an InnoChannelPoint in a block to
@@ -523,7 +511,7 @@ class InnoDataPacketUtils {
                                    const InnoBlockAngles angles, const uint32_t channel, InnoXyzPoint *pt,
                                    bool long_distance_mode = false) {
     InnoXyzrD xyzr;
-    get_xyzr_meter(angles, cp.radius, channel, &xyzr, INNO_ITEM_TYPE_SPHERE_POINTCLOUD, 1, long_distance_mode);
+    get_xyzr_meter(angles, cp.radius, channel, &xyzr, INNO_ITEM_TYPE_SPHERE_POINTCLOUD, long_distance_mode);
     if (vehicle_coordinate_ == 1) {
       pt->x = xyzr.z;
       pt->y = -xyzr.y;
@@ -608,6 +596,9 @@ class InnoDataPacketUtils {
       index = (block.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
     }
     scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
+    if (type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      scan_id = block.scan_id *kMaxReceiverInSet + channel;
+    }
     get_xyzr_meter(angles, cp.radius, scan_id, &xyzr, type, cp.firing);
     if (vehicle_coordinate_ == 1) {
       pt->x = xyzr.z;
@@ -665,6 +656,7 @@ class InnoDataPacketUtils {
     case INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD:
+    case INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD:
       if (mode == INNO_MULTIPLE_RETURN_MODE_SINGLE) {
         unit_size = sizeof(InnoCoBlock1);
       } else if (mode == INNO_MULTIPLE_RETURN_MODE_2_STRONGEST ||
@@ -693,6 +685,7 @@ class InnoDataPacketUtils {
     case INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD:
       unit_size = sizeof(InnoEnXyzPoint);
       break;
     default:

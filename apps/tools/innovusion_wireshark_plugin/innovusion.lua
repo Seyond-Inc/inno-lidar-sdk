@@ -682,7 +682,7 @@ do
 
                 /* 2 bytes */
                 uint16_t source_id :4;           /* up to 16 different LiDAR source */
-                uint16_t timestamp_sync_type :4; /* enum InnoTimestampSyncType      */
+                uint16_t timestamp_sync_type :4; /* enum InnoTimeSyncType      */
                 uint16_t reserved :8;
 
                 /* 8 bytes */
@@ -716,7 +716,7 @@ do
         [14] = "INNO_TIME_SYNC_TYPE_PTP_LOST",
         [15] = "INNO_TIME_SYNC_TYPE_NTP_LOST"
     }
-    local field_timestamp_sync_type = ProtoField.uint16("Innovusion","timestamp_sync_type",base.DEC, type_time_sync, 0x00F0, "enum InnoTimestampSyncType")
+    local field_timestamp_sync_type = ProtoField.uint16("Innovusion","timestamp_sync_type",base.DEC, type_time_sync, 0x00F0, "enum InnoTimeSyncType")
 
     local lidar_type = {
         [0] = "falconi/g/k",
@@ -961,7 +961,13 @@ do
         [13] = "INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD",
         [14] = "INNO_ROBINELITE_ITEM_TYPE_SPHERE_POINTCLOUD",
         [15] = "INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD",
-        [16] = "INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD"
+        [16] = "INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD",
+		[17] = "INNO_ROBINE2_ITEM_TYPE_SPHERE_POINTCLOUD",
+		[18] = "INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD",
+		[19] = "INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD",
+		[20] = "INNO_HB_ITEM_TYPE_SPHERE_POINTCLOUD",
+		[21] = "INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD",
+		[22] = "INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD",
     }
     local type_scanner_direction = {
         [0] = "top->bottom",
@@ -1006,7 +1012,7 @@ do
     local field_roi_h_angle = ProtoField.uint16("Innovusion", "roi_h_angle", base.DEC, nil, nil, "configured ROI in InnoAngleUnit")
     local field_roi_v_angle = ProtoField.uint16("Innovusion", "roi_v_angle", base.DEC, nil, nil, "configured ROI in InnoAngleUnit")
 
-    
+
     local field_extend_reserved0 = ProtoField.uint32("Innovusion", "extend_reserved[0]", base.DEC, nil, nil, "")
     local field_extend_reserved1 = ProtoField.uint32("Innovusion", "extend_reserved[1]", base.DEC, nil, nil, "")
     local field_extend_reserved2 = ProtoField.uint32("Innovusion", "extend_reserved[2]", base.DEC, nil, nil, "")
@@ -1018,7 +1024,7 @@ do
     for i = 0, 95 do
         local bit_index = i % 8
         local bit_mask = 2^bit_index
-    
+
         field_infaults[i] = ProtoField.uint8(
             "Innovusion",
             string.format("FAULT_%02d", i),
@@ -1032,7 +1038,7 @@ do
     for i = 0, 31 do
         local bit_index = i % 8
         local bit_mask = 2^bit_index
-    
+
         field_exfaults[i] = ProtoField.uint8(
             "Innovusion",
             string.format("FAULT_%02d", i+96),
@@ -1046,7 +1052,7 @@ do
     --64+32=96  96/8=12bytes
     function InnoStatusInFaults_dissector(buf, pkt, parent)
         local h = parent:add("InnoStatusInFaults")
-    
+
         for i = 0, 95 do
             local byte_index = math.floor(i / 8)
             h:add_le(field_infaults[i], buf(byte_index, 1))
@@ -1056,7 +1062,7 @@ do
     -- 32 32/8=4bytes
     function InnoStatusExFaults_dissector(buf, pkt, parent)
         local h = parent:add("InnoStatusExFaults")
-    
+
         for i = 0, 31 do
             local byte_index = math.floor(i / 8)
             h:add_le(field_exfaults[i], buf(byte_index, 1))
@@ -1537,7 +1543,7 @@ do
         field_infaults[80], field_infaults[81], field_infaults[82], field_infaults[83], field_infaults[84], field_infaults[85], field_infaults[86], field_infaults[87],
         field_infaults[88], field_infaults[89], field_infaults[90], field_infaults[91], field_infaults[92], field_infaults[93], field_infaults[94], field_infaults[95],
 
-        field_exfaults[0], field_exfaults[1], field_exfaults[2], field_exfaults[3], field_exfaults[4], field_exfaults[5], field_exfaults[6], field_exfaults[7], 
+        field_exfaults[0], field_exfaults[1], field_exfaults[2], field_exfaults[3], field_exfaults[4], field_exfaults[5], field_exfaults[6], field_exfaults[7],
         field_exfaults[8], field_exfaults[9], field_exfaults[10], field_exfaults[11], field_exfaults[12], field_exfaults[13], field_exfaults[14], field_exfaults[15],
         field_exfaults[16], field_exfaults[17], field_exfaults[18], field_exfaults[19], field_exfaults[20], field_exfaults[21], field_exfaults[22], field_exfaults[23],
         field_exfaults[24], field_exfaults[25], field_exfaults[26], field_exfaults[27], field_exfaults[28], field_exfaults[29], field_exfaults[30], field_exfaults[31],
@@ -1657,7 +1663,7 @@ do
         parent:add_le(field_reserved_flag,buf(48,2))
         parent:add_le(field_roi_h_angle,buf(50,2))
         parent:add_le(field_roi_v_angle,buf(52,2))
-        
+
         if is_falcon_igk == false
         then
             parent:add_le(field_extend_reserved0,buf(54,4))
@@ -1704,7 +1710,7 @@ do
             else
                 --
             end
-        elseif item_type == 13 then
+        elseif (item_type == 13 or item_type == 16 or item_type == 19 or item_type == 22)then
             -- innovusion:robinw_generic sphere
             if itme_size == innocoblock1_len then
                 for i = 0, itme_num - 1, 1 do
@@ -1751,7 +1757,7 @@ do
         if major_version > 1
         then
             local item_type = buf(38,1):le_uint()
-            if (item_type == 13 or item_type == 16) then
+            if (item_type == 13 or item_type == 16 or item_type == 19 or item_type == 22) then
                 is_generic_lidar = true
             end
             is_falcon_igk = false

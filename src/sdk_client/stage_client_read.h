@@ -287,7 +287,7 @@ class UdpInput : public BaseInput {
    * @param port UDP port id
    * @return Return 0 for success, others for error
    */
-  int read_udp_(int32_t port);
+  int read_udp_(int32_t port, bool message_port_is_separate = false);
 
   bool verify_inno_data_packet_counter(const InnoDataPacket &pkt, bool* same_data_sub_seq);
   bool verify_inno_status_packet_counter(const InnoStatusPacket &pkt, bool* same_status_sub_seq);

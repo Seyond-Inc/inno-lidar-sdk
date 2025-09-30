@@ -901,7 +901,7 @@ int InnoLidarClient::before_read_start(void) {
     ret = comm_->get_sn(buffer, sizeof(buffer));
     if (ret) {
       inno_log_error("cannot get sn");
-      return ret;
+      // return ret;
     } else {
       inno_log_info("%s serial number: %s", get_name(), buffer);
     }

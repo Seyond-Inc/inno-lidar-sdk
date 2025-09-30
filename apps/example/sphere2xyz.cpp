@@ -227,13 +227,17 @@ void CallbackProcessor::co_block_to_xyz_point(const InnoDataPacket &pkt, std::ve
           if (pkt.type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
             scan_id = block->header.scan_id;
             scan_idx += channel;
+          } else if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+            DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
+            int index = (block->header.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
+            scan_id = channel_mapping[index];
           } else {
             DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
             int index = block->header.scan_id * kMaxReceiverInSet + channel;
             scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
           }
           InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
-                                              static_cast<InnoItemType>(pkt.type), pt.firing);
+                                              static_cast<InnoItemType>(pkt.type));
 
           PcdPoint pcd_point;
           pcd_point.x = xyzr.x;
@@ -243,6 +247,9 @@ void CallbackProcessor::co_block_to_xyz_point(const InnoDataPacket &pkt, std::ve
           pcd_point.facet = block->header.facet;
           pcd_point.confid_level = pkt.confidence_level;
           pcd_point.timestamp = frame_timestamp_sec + block->header.ts_10us / k10UsInSecond;
+          if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+            scan_id += (block->header.scan_id / kInnoRobinELiteMaxSetNumber) * 96;
+          }
           pcd_point.scanline = scan_id;
           pcd_point.scan_idx = scan_idx;
 
@@ -285,7 +292,7 @@ void CallbackProcessor::block_to_xyz_point(const InnoDataPacket &pkt, std::vecto
 
         if (pt.radius > 0) {
           InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, channel, &xyzr,
-                                              static_cast<InnoItemType>(pkt.type), 1, pkt.long_distance_mode);
+                                              static_cast<InnoItemType>(pkt.type), pkt.long_distance_mode);
           PcdPoint pcd_point;
           pcd_point.x = xyzr.x;
           pcd_point.y = xyzr.y;

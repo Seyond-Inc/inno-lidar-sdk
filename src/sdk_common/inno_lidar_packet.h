@@ -37,7 +37,7 @@
  *****************/
 #define INNO_SDK_V_MAJOR "3"
 #define INNO_SDK_V_MINOR "103"
-#define INNO_SDK_V_DOT "1"
+#define INNO_SDK_V_DOT "4"
 #define INNO_SDK_VERSION_IN_HEADER INNO_SDK_V_MAJOR "." INNO_SDK_V_MINOR "." INNO_SDK_V_DOT "."
 
 /************
@@ -191,6 +191,13 @@ enum InnoItemType {
   // ROBINELITE COMPACT POINTCLOUD, InnoCoPoint
   INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD = 16,
 
+    // ROBIN_E2 SPHERE POINTCLOUD
+  INNO_ROBINE2_ITEM_TYPE_SPHERE_POINTCLOUD = 17,
+  // ROBIN_E2 SPHERE POINTCLOUD, InnoEnXyzPoint
+  INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD = 18,
+  // ROBINE2 COMPACT POINTCLOUD, InnoCoPoint
+  INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD = 19,
+
   // HUMMINGBIRD SPHERE POINTCLOUD
   INNO_HB_ITEM_TYPE_SPHERE_POINTCLOUD = 20,
   // HUMMINGBIRD SPHERE POINTCLOUD, InnoEnXyzPoint
@@ -206,7 +213,9 @@ enum InnoItemType {
   INNO_FALCON_RING_ID_TABLE = 102,
   // HUMMINGBIRD AngleHV TABLE
   INNO_HB_ITEM_TYPE_ANGLEHV_TABLE = 103,
-  INNO_ITEM_TYPE_MAX = 103,
+  // ROBINE2 AngleHV TABLE
+  INNO_ROBINE2_TYPE_ANGLEHV_TABLE = 104,
+  INNO_ITEM_TYPE_MAX = 105,
 };
 
 enum InnoReflectanceMode {
@@ -265,7 +274,8 @@ enum InnoVAngleDiffBase {
 
 enum InnoSetNumber {
   kInnoRobinWMaxSetNumber = 6,
-  kInnoRobinELiteMaxSetNumber = 12
+  kInnoRobinELiteMaxSetNumber = 12,
+  kInnoRobinE2MaxSetNumber = 24
 };
 /************
  Simple types
@@ -741,7 +751,7 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoCommonHeader) {
 
   /* 2 bytes */
   uint8_t source_id : 4;           /* up to 16 different LiDAR source */
-  uint8_t timestamp_sync_type : 4; /* enum InnoTimestampSyncType      */
+  uint8_t timestamp_sync_type : 4; /* enum InnoTimeSyncType      */
   uint8_t lidar_type;          /* enum InnoLidarType */
   /* 8 bytes */
   InnoTimestampUs ts_start_us; /* epoch time of start of frame, in micro-sec */
@@ -789,6 +799,13 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoHbAngleHVTable) {
 } InnoHbAngleHVTable;
 DEFINE_INNO_COMPACT_STRUCT_END
 
+typedef DEFINE_INNO_COMPACT_STRUCT(InnoRobinE2AngleHVTable) {
+  InnoAngleHVTableVersion version_number;
+  uint64_t id;
+  AngleHV table[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinE2MaxSetNumber][kMaxReceiverInSet];
+  uint8_t reserved[512];
+} InnoRobinE2AngleHVTable;
+DEFINE_INNO_COMPACT_STRUCT_END
 /*
  * Main data packet definition
  * 26 + 12 + 10 + 2 + 4 + 16 = 70 bytes, max overhead is 70/1472 = 4.7%,
@@ -860,6 +877,7 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoStatusInFaults) {
    *  FalconK2 fault defined in enum InnoLidarFK2InFault
    *  RobinW fault defined in enum InnoLidarRobinWInFault
    *  RobinELite fault defined in enum InnoLidarRobinELInFault
+   *  RobinE2 fault defined in enum InnoLidarRobinE2InFault
    *  0 means no fault.
    */
   uint64_t faults; /* fid id 0-63 */

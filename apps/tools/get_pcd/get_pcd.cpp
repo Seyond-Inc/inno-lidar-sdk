@@ -97,8 +97,9 @@ class RingBuffer {
         blocks_[index_].status = kBufUsing;
       } else {
         // get free block failed, status should be kBufUsed
+        // status may have already changed to kBufFree by write thread
         if (blocks_[index_].status != kBufUsed) {
-          inno_log_panic("block %d is in wrong status %d", index_, blocks_[index_].status);
+          inno_log_warning("block %d is in wrong status %d", index_, blocks_[index_].status);
         }
         return false;
       }
@@ -1336,11 +1337,24 @@ class ExampleProcessor {
               scan_idx += channel;
             } else {
               DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
-              int index = block->header.scan_id * kMaxReceiverInSet + channel;
-              scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+              int index = 0;
+              if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+                int index = (block->header.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
+                scan_id = channel_mapping[index];
+              } else if (pkt.type ==INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD) {
+                index = block->header.scan_id * 8 + channel;
+              } else {
+                index = block->header.scan_id * kInnoCompactChannelNumber + channel;
+                scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+              }
             }
             InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
               static_cast<InnoItemType>(pkt.type), pt.firing);
+            if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
+              // robin elite inset line scan_id > kInnoRobinELiteMaxSetNumber
+              scan_id = scan_id + (block->header.scan_id / kInnoRobinELiteMaxSetNumber) *
+                                      96;  // scan_id >= kInnoRobinELiteMaxSetNumber, means inset points
+            }
             if (force_vehicle_coordinate) {
               x = xyzr.z;
               y = -xyzr.y;
@@ -1399,7 +1413,7 @@ class ExampleProcessor {
 
           if (pt.radius > 0) {
             InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, channel, &xyzr,
-                                                static_cast<InnoItemType>(pkt.type), 1, pkt.long_distance_mode);
+                                                static_cast<InnoItemType>(pkt.type), pkt.long_distance_mode);
             if (force_vehicle_coordinate) {
               x = xyzr.z;
               y = -xyzr.y;
@@ -1574,6 +1588,7 @@ void usage(const char *arg0) {
                "\t\t0 = Lite PCD (XYZICRT:Contains X,Y,Z,Intensity,Confidence,Ring ID,and Timestamp)\n"
                "\t\t1 = Normal PCD (Includes additional information such as scan_id and Scan_idx)\n"
                "\t\t2 = Enhanced PCD (Includes all Normal PCD features plus Horizontal and Vertical Angle)]\n"
+               "\t[force-vehicle-coordinate <force output vehicle coordinate, default false>]\n"
                "\t[--version]\n",
                arg0);
   inno_fprintf(2,
