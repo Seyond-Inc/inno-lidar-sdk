@@ -37,7 +37,7 @@
  *****************/
 #define INNO_SDK_V_MAJOR "3"
 #define INNO_SDK_V_MINOR "103"
-#define INNO_SDK_V_DOT "4"
+#define INNO_SDK_V_DOT "10"
 #define INNO_SDK_VERSION_IN_HEADER INNO_SDK_V_MAJOR "." INNO_SDK_V_MINOR "." INNO_SDK_V_DOT "."
 
 /************
@@ -191,12 +191,12 @@ enum InnoItemType {
   // ROBINELITE COMPACT POINTCLOUD, InnoCoPoint
   INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD = 16,
 
-    // ROBIN_E2 SPHERE POINTCLOUD
-  INNO_ROBINE2_ITEM_TYPE_SPHERE_POINTCLOUD = 17,
-  // ROBIN_E2 SPHERE POINTCLOUD, InnoEnXyzPoint
-  INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD = 18,
-  // ROBINE2 COMPACT POINTCLOUD, InnoCoPoint
-  INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD = 19,
+    // ROBIN_E2X SPHERE POINTCLOUD
+  INNO_ROBINE2X_ITEM_TYPE_SPHERE_POINTCLOUD = 17,
+  // ROBIN_E2x SPHERE POINTCLOUD, InnoEnXyzPoint
+  INNO_ROBINE2X_ITEM_TYPE_XYZ_POINTCLOUD = 18,
+  // ROBINE2X COMPACT POINTCLOUD, InnoCoPoint
+  INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD = 19,
 
   // HUMMINGBIRD SPHERE POINTCLOUD
   INNO_HB_ITEM_TYPE_SPHERE_POINTCLOUD = 20,
@@ -204,6 +204,13 @@ enum InnoItemType {
   INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD = 21,
   // HUMMINGBIRD COMPACT POINTCLOUD, InnoCoPoint
   INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD = 22,
+
+  // ROBIN_E2 SPHERE POINTCLOUD
+  INNO_ROBINE2_ITEM_TYPE_SPHERE_POINTCLOUD = 23,
+  // ROBIN_E2 SPHERE POINTCLOUD, InnoEnXyzPoint
+  INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD = 24,
+  // ROBINE2 COMPACT POINTCLOUD, InnoCoPoint
+  INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD = 25,
 
   // ROBINW AngleHV TABLE
   INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE = 100,
@@ -213,9 +220,11 @@ enum InnoItemType {
   INNO_FALCON_RING_ID_TABLE = 102,
   // HUMMINGBIRD AngleHV TABLE
   INNO_HB_ITEM_TYPE_ANGLEHV_TABLE = 103,
-  // ROBINE2 AngleHV TABLE
-  INNO_ROBINE2_TYPE_ANGLEHV_TABLE = 104,
-  INNO_ITEM_TYPE_MAX = 105,
+      // ROBINE2X AngleHV TABLE
+  INNO_ROBINE2X_TYPE_ANGLEHV_TABLE = 104,
+      // ROBINE2 AngleHV TABLE
+  INNO_ROBINE2_TYPE_ANGLEHV_TABLE = 105,
+  INNO_ITEM_TYPE_MAX = 106,
 };
 
 enum InnoReflectanceMode {
@@ -257,8 +266,9 @@ enum InnoLidarType {
   INNO_LIDAR_TYPE_FALCONK2 = 3,        // FalconK2
   INNO_LIDAR_TYPE_FALCONIII = 4,
   INNO_LIDAR_TYPE_ROBINELITE = 5,
-  INNO_LIDAR_TYPE_ROBINE2 = 6,
+  INNO_LIDAR_TYPE_ROBINE2X = 6,
   INNO_LIDAR_TYPE_HB = 7,
+  INNO_LIDAR_TYPE_ROBINE2 =  8,
 };
 
 enum InnoDistanceUnitPerMeter {
@@ -275,7 +285,8 @@ enum InnoVAngleDiffBase {
 enum InnoSetNumber {
   kInnoRobinWMaxSetNumber = 6,
   kInnoRobinELiteMaxSetNumber = 12,
-  kInnoRobinE2MaxSetNumber = 24
+  kInnoRobinE2XMaxSetNumber = 24,
+  kInnoRobinE2MaxSetNumber = 48
 };
 /************
  Simple types
@@ -580,7 +591,7 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoEnXyzPoint) {
   float y;
   float z;
   float radius;
-  uint16_t ts_10us;   /*relate time to InnoDataPacket ts_start_us, deprecated */
+  uint16_t ts_10us;   /*relate time to InnoDataPacket ts_start_us*/
   uint16_t scan_id;   /* id of the scan line */
   uint16_t scan_idx;  /* point idx within the scan line */
   double timestamp_s; /* epoch time of the point, in second */
@@ -647,7 +658,7 @@ DEFINE_INNO_COMPACT_STRUCT_END
 
 /* compact format, 4 bytes per point */
 typedef DEFINE_INNO_COMPACT_STRUCT(InnoCoChannelPoint) {
-  uint32_t refl : 12;    /* reflectance or intensity robin 1-4095  */
+  uint32_t refl : 12;    /* reflectance or intensity robin 0-255  */
   uint32_t radius : 18;         /* distance in distance unit, distance unit:1/400m, range [0, 655.35m] */
   uint32_t is_2nd_return: 1;    /* RWG: 1: possible dusy point, 0: normal point*/
   uint32_t firing: 1;           /* 0: weak, 1: strong */
@@ -797,6 +808,14 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoHbAngleHVTable) {
   AngleHV table[kHBVTableSize][kHBHTableSize];
   uint8_t reserved[512];
 } InnoHbAngleHVTable;
+DEFINE_INNO_COMPACT_STRUCT_END
+
+typedef DEFINE_INNO_COMPACT_STRUCT(InnoRobinE2XAngleHVTable) {
+  InnoAngleHVTableVersion version_number;
+  uint64_t id;
+  AngleHV table[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinE2XMaxSetNumber][kMaxReceiverInSet];
+  uint8_t reserved[512];
+} InnoRobinE2XAngleHVTable;
 DEFINE_INNO_COMPACT_STRUCT_END
 
 typedef DEFINE_INNO_COMPACT_STRUCT(InnoRobinE2AngleHVTable) {
@@ -951,7 +970,7 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoStatusSensorReadings) {
   uint64_t motor_rotation_total;
   uint64_t galvo_round_total;
   uint16_t moisture_index[2];         /* moisture index        */
-  uint16_t window_blockage_index[2];  /* window blockage index */
+  uint16_t window_blockage_index[2];
   uint16_t motor[6];  /* ma */
   uint16_t galvo[6];  /* ma */
   uint16_t laser[6];  /* ma */
@@ -972,14 +991,15 @@ typedef DEFINE_INNO_COMPACT_STRUCT(InnoStatusSensorReadings) {
   uint16_t gyro_x;
   uint16_t gyro_y;
   uint16_t gyro_z;
-  int32_t accel_unit_x;
-  int32_t accel_unit_y;
-  int32_t accel_unit_z;
-  int32_t gyro_unit_x;
-  int32_t gyro_unit_y;
-  int32_t gyro_unit_z;
-  uint16_t gyro_temp;
-  uint16_t reserved[20];
+  int32_t accel_unit_x;  // X-axis acceleration, value/100000.0 gives actual acceleration in g
+  int32_t accel_unit_y;  // Y-axis acceleration, value/100000.0 gives actual acceleration in g
+  int32_t accel_unit_z;  // Z-axis acceleration, value/100000.0 gives actual acceleration in g
+  int32_t gyro_unit_x;   // X-axis angular velocity, value/100000.0 gives actual rate in deg/s
+  int32_t gyro_unit_y;   // Y-axis angular velocity, value/100000.0 gives actual rate in deg/s
+  int32_t gyro_unit_z;   // Z-axis angular velocity, value/100000.0 gives actual rate in deg/s
+  int16_t gyro_temp;
+  uint64_t imu_ts_nsec;
+  uint16_t reserved[16];
 } InnoStatusSensorReadings;
 DEFINE_INNO_COMPACT_STRUCT_END
 

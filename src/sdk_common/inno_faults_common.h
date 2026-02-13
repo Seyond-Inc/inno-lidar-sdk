@@ -13,6 +13,6 @@
 #include "sdk_common/inno_faults_robinw.h"
 #include "sdk_common/inno_faults_falconk2.h"
 #include "sdk_common/inno_faults_robinel.h"
-#include "sdk_common/inno_faults_robine2.h"
-
+#include "sdk_common/inno_faults_robine2x.h"
+#include "sdk_common/inno_faults_hummingbird.h"
 #endif  // SDK_COMMON_INNO_FAULTS_COMMON_H_

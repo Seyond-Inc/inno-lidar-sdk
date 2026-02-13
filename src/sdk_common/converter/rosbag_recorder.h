@@ -390,7 +390,7 @@ uint32 count     # How many elements in the field
   void write_connection_record_();
   void write_message_data_record_(uint32_t data_len);
   void write_message_data_header_();
-  void write_message_data_msg_(const InnoDataPacket *cframe);
+  void write_message_data_msg_(const InnoDataPacket *cframe, uint64_t time_ns);
   void write_index_record_();
   int stop_writing_chunk_();
   void write_chunk_info_records_();

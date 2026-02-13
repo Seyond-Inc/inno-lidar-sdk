@@ -775,8 +775,8 @@ int InnoLidarClient::start() {
 
   bool can_drop = is_live_lidar_() || play_rate_ != 0 || play_rate_x_ != 0;
 
-  cp_deliver_ = new ConsumerProducer("deliver", 0, 1, StageClientDeliver::process, stage_deliver_, 400,
-                                     can_drop ? 400 : 0, 100, cpusetsize_, exclude_callback_thread_ ? NULL : cpuset_);
+  cp_deliver_ = new ConsumerProducer("deliver", 0, 1, StageClientDeliver::process, stage_deliver_, 800,
+                                     can_drop ? 800 : 0, 100, cpusetsize_, exclude_callback_thread_ ? NULL : cpuset_);
   inno_log_verify(cp_deliver_, "deliver");
 
 

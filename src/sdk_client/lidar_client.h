@@ -77,7 +77,7 @@ class InnoLidarClient : public InnoLidarBase {
   static const size_t kDeliverPointsJobPoolSize = 10;
   static const size_t kDeliverStatusJobPoolSize = 10;
   static const size_t kMaxPacketSize = 65536;
-  static const size_t kPacketPoolSize = 900;
+  static const size_t kPacketPoolSize = 1000;
 
  public:  // static methods
   /**

@@ -748,7 +748,7 @@ class ExampleProcessor {
   explicit ExampleProcessor(const std::string &filename, const int64_t frame_start, const int64_t frame_number,
                             const int64_t file_number, int use_xyz_point, const std::string &latency_file,
                             int ascii_pcd, int extract_message, uint64_t run_time, int lidar_handle,
-                            const std::string anglehv_table_file)
+                            const std::string anglehv_table_file, const std::string imu_filename)
       : filename_(filename),
         frame_start_(frame_start),
         frame_number_(frame_number),
@@ -804,6 +804,20 @@ class ExampleProcessor {
                       latency_file_.c_str());
     }
 
+    if (!imu_filename.empty()) {
+      if (FILE *fp = fopen(imu_filename.c_str(), "r")) {
+        fclose(fp);
+        int r = remove(imu_filename.c_str());
+        inno_log_verify(r == 0, "cannot delete %s", imu_filename.c_str());
+      }
+      imu_fd_ = innovusion::InnoUtils::open_file(imu_filename.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+      inno_log_verify(imu_fd_ >= 0, "cannot open %s", imu_filename.c_str());
+      char imu_header[128] = "timestamp,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z\n";
+      write(imu_fd_, imu_header, strlen(imu_header));
+    } else {
+      imu_fd_ = -1;
+    }
+
     if (!anglehv_table_file.empty()) {
       anglehv_table_ = new char[kInnoAngleHVTableMaxSize];
       std::ifstream ifs(anglehv_table_file, std::ios::binary);
@@ -837,6 +851,11 @@ class ExampleProcessor {
     if (status_fd_ >= 0) {
       close(status_fd_);
       status_fd_ = -1;
+    }
+
+    if (imu_fd_ >= 0) {
+      close(imu_fd_);
+      imu_fd_ = -1;
     }
     if (latency_recorder_) {
       latency_recorder_->close();
@@ -956,6 +975,25 @@ class ExampleProcessor {
         }
       }
     }
+    if (imu_fd_ >= 0) {
+      char imu_buffer[1024] = {0};
+      static size_t imu_cnt = 0;
+      int write_len =
+        snprintf(imu_buffer, sizeof(imu_buffer), "%" PRI_SIZELU ",%lf,%lf,%lf,%lf,%lf,%lf\n", pkt->sensor_readings.imu_ts_nsec,
+                 pkt->sensor_readings.accel_unit_x / 100000.0, pkt->sensor_readings.accel_unit_y / 100000.0,
+                 pkt->sensor_readings.accel_unit_z / 100000.0, pkt->sensor_readings.gyro_unit_x / 100000.0,
+                 pkt->sensor_readings.gyro_unit_y / 100000.0, pkt->sensor_readings.gyro_unit_z / 100000.0);
+
+      if (write_len > 0) {
+        int r = write(imu_fd_, imu_buffer, write_len);
+        if (r < 0) {
+          inno_log_warning("cannot write data to %s", imu_filename_.c_str());
+        }
+      }
+      if (++imu_cnt > frame_number_ && filename_.empty()) {
+        set_done();
+      }
+    }
   }
 
   static int status_callback_s(const int lidar_handle, void *ctx, const InnoStatusPacket *pkt) {
@@ -1019,6 +1057,19 @@ class ExampleProcessor {
                                                                  pkt->common.ts_start_us / kUsInSecond) &&
         !reinterpret_cast<ExampleProcessor *>(ctx)->latency_file_.empty()) {
       reinterpret_cast<ExampleProcessor *>(ctx)->get_latency_info(*pkt);
+    }
+    if (!reinterpret_cast<ExampleProcessor *>(ctx)->latency_file_.empty()) {
+      // just for latency test, do not process data
+      reinterpret_cast<ExampleProcessor *>(ctx)->receive_datacallback_ = true;
+      if (reinterpret_cast<ExampleProcessor *>(ctx)->frame_so_far_ >=
+              reinterpret_cast<ExampleProcessor *>(ctx)->frame_start_ &&
+          (reinterpret_cast<ExampleProcessor *>(ctx)->frame_so_far_ <
+           reinterpret_cast<ExampleProcessor *>(ctx)->frame_start_ +
+               reinterpret_cast<ExampleProcessor *>(ctx)->frame_number_ *
+                   reinterpret_cast<ExampleProcessor *>(ctx)->file_number_)) {
+        reinterpret_cast<ExampleProcessor *>(ctx)->summary_package_.summary_data_package(*pkt);
+      }
+      return 0;
     }
     if (cur_frame_id != pkt->idx) {
       inno_log_info("frame idx:%" PRI_SIZEU ", point_count:%d", cur_frame_id, cur_frame_point);
@@ -1341,15 +1392,16 @@ class ExampleProcessor {
               if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
                 int index = (block->header.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
                 scan_id = channel_mapping[index];
-              } else if (pkt.type ==INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD) {
-                index = block->header.scan_id * 8 + channel;
+              } else if (pkt.type ==INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD ||
+                         pkt.type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD) {
+                scan_id = block->header.scan_id * 8 + channel;
               } else {
                 index = block->header.scan_id * kInnoCompactChannelNumber + channel;
                 scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
               }
             }
             InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
-              static_cast<InnoItemType>(pkt.type), pt.firing);
+              static_cast<InnoItemType>(pkt.type));
             if (pkt.type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
               // robin elite inset line scan_id > kInnoRobinELiteMaxSetNumber
               scan_id = scan_id + (block->header.scan_id / kInnoRobinELiteMaxSetNumber) *
@@ -1530,6 +1582,8 @@ class ExampleProcessor {
   std::string status_filename_;
   int status_fd_;
   int msg_fd_;
+  std::string imu_filename_;
+  int imu_fd_;
   char msg_buffer_[kMaxMsgBuf];
   char status_buffer_[kMaxMsgBuf];
   enum FileRecorder::FileType file_type_;
@@ -1643,7 +1697,7 @@ int main(int argc, char **argv) {
   std::string pcap_filename;
   std::string lidar_ip = "172.168.1.10";
   uint16_t lidar_port = 8010;
-  uint16_t lidar_udp_port = 0;
+  uint16_t lidar_udp_port = 8010;
   std::string filename;
   int64_t frame_start = -1;
   int64_t frame_number = 1;
@@ -1651,6 +1705,7 @@ int main(int argc, char **argv) {
   int use_xyz_point = 1;
   std::string latency_file = "";
   int extract_message = 0;
+  std::string imu_filename = "";
   int use_tcp = 0;
   int ascii_pcd = 0;
   int vehicle_speed = 0;
@@ -1694,6 +1749,7 @@ int main(int argc, char **argv) {
                                   {"pitch", required_argument, 0, 't'},
                                   {"yaw", required_argument, 0, 'y'},
                                   {"extract-message", no_argument, &extract_message, 1},
+                                  {"imu-filename", required_argument, 0, 'L'},
                                   {"use-tcp", no_argument, &use_tcp, 1},
                                   {"ascii-pcd", no_argument, &ascii_pcd, 1},
                                   {"max-distance", no_argument, &max_distance, 1},
@@ -1706,7 +1762,7 @@ int main(int argc, char **argv) {
                                   {"force-vehicle-coordinate", no_argument, &force_vehicle_coordinate, 1},
                                   {"point-type", required_argument, 0, 'S'},
                                   {0, 0, 0, 0}};
-  const char *optstring = "ac:e:f:g:hl:m:n:p:r:s:t:x:v:y:F:M:N:O:P:C:V:W:S";
+  const char *optstring = "ac:e:f:g:hl:m:n:p:r:s:t:x:v:y:F:M:N:O:P:C:V:W:S:L";
   while (1) {
     int option_index = 0;
     c = getopt_long(argc, argv, optstring, long_options, &option_index);
@@ -1746,7 +1802,9 @@ int main(int argc, char **argv) {
         filename = optarg;
         filename_with_timestamp = true;
         break;
-
+      case 'L':
+        imu_filename = optarg;
+        break;
       case 'f':
         inno_pc_filename = optarg;
         break;
@@ -1955,7 +2013,7 @@ int main(int argc, char **argv) {
    * create ExampleProcessor object
    ***********************/
   ExampleProcessor processor(filename, frame_start, frame_number, file_number, use_xyz_point, latency_file, ascii_pcd,
-                             extract_message, run_time, handle, anghv_table_file);
+                             extract_message, run_time, handle, anghv_table_file, imu_filename);
   processor.set_need_process_data(need_process_data);
 
   if (transform_cs) {

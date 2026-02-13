@@ -405,7 +405,7 @@ int RosbagRecorder::start_writing_chunk_(const InnoDataPacket *cframe) {
   }
   write_message_data_header_();
   if (cframe) {
-    write_message_data_msg_(cframe);
+    write_message_data_msg_(cframe, chunk_start_time);
   }
   return RERCORDER_SUCCESS;
 }
@@ -505,11 +505,10 @@ void RosbagRecorder::write_message_data_header_() {
   write_value_(message_data_data_len);
 }
 
-void RosbagRecorder::write_message_data_msg_(const InnoDataPacket *cframe) {
+void RosbagRecorder::write_message_data_msg_(const InnoDataPacket *cframe, uint64_t time_ns) {
   std_msgs_header_.seq = cframe->idx;
 
-  uint64_t header_time = InnoUtils::get_time_ns();
-  std_msgs_header_.time = header_time;
+  std_msgs_header_.time = time_ns;
   write_data_(&std_msgs_header_, sizeof(StdMsgsHeader));
   write_value_(std_msgs_.height);
   message_data_width_positon_ = buffer_write_cursor_;

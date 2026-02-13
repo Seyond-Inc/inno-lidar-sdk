@@ -750,6 +750,14 @@ int NetManager::send_command_with_fd_v_(int fd,
           inno_log_error_errno(" %d", n);
           return -6;
         } else if (n == 0) {
+          if (already_read > 0) {
+            // not found '\n\n', for E2 Lidar json reply
+            reply[already_read] = '\n';
+            reply[already_read + 1] = '\n';
+            reply[already_read + 2] = 0;
+            *reply_len = already_read + 2;
+            return fd;
+          }
           return -8;
         } else {
           already_read += n;

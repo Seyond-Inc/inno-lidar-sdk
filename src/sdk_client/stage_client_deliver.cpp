@@ -72,24 +72,19 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
   inno_log_verify(n >= sizeof(InnoCommonHeader), "%" PRI_SIZELU " vs %" PRI_SIZELU, n, sizeof(InnoCommonHeader));
   if (pkt->version.magic_number == kInnoMagicNumberStatusPacket) {
     InnoStatusPacket *status_packet = reinterpret_cast<InnoStatusPacket *>(pkt);
-
-    // xxx todo: handle different version
-    if (n == sizeof(InnoStatusPacket)) {
-      stats_status_jobs_++;
-      if (lidar_->status_packet_callback_) {
-        lidar_->status_packet_callback_(lidar_->handle_, lidar_->callback_context_, status_packet);
-      }
-      lidar_->stats_update_packet_bytes(ResourceStats::PACKET_TYPE_STATUS, 1, n);
-      // update ring_id table if mode changed
-      if (status_packet->common.lidar_status == 0) {
-        if (status_packet->common.lidar_mode != cur_lidar_mode_) {
-          lidar_->update_ring_id_table(nullptr);
-        }
-        cur_lidar_mode_ = status_packet->common.lidar_mode;
-      }
-    } else {
-      inno_log_warning("size mismatch %" PRI_SIZELU " %" PRI_SIZELU, n, sizeof(InnoStatusPacket));
+    stats_status_jobs_++;
+    if (lidar_->status_packet_callback_) {
+      lidar_->status_packet_callback_(lidar_->handle_, lidar_->callback_context_, status_packet);
     }
+    lidar_->stats_update_packet_bytes(ResourceStats::PACKET_TYPE_STATUS, 1, n);
+    // update ring_id table if mode changed
+    if (status_packet->common.lidar_status == 0) {
+      if (status_packet->common.lidar_mode != cur_lidar_mode_) {
+        lidar_->update_ring_id_table(nullptr);
+      }
+      cur_lidar_mode_ = status_packet->common.lidar_mode;
+    }
+
   } else if (pkt->version.magic_number == kInnoMagicNumberDataPacket) {
     InnoDataPacket *data_packet = reinterpret_cast<InnoDataPacket *>(pkt);
     if (n >= sizeof(InnoDataPacket)) {
@@ -130,6 +125,7 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
               } else {
                 lidar_->add_deliver2_job_(reinterpret_cast<void *>(xyz_pkt));
               }
+              callback_mean_ms_.add((InnoUtils::get_time_ns() - start_2) / 1000000.0);
               point_count_2nd_return = InnoDataPacketUtils::get_points_count_2nd_return(*xyz_pkt);
             } else {
               inno_log_error("cannot convert data_packet");
@@ -158,14 +154,15 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
                 reinterpret_cast<RingIdConverterInterface *>(lidar_->ring_id_converter_),
                 reinterpret_cast<char *>(reinterpret_cast<InnoAngleHVTable *>(lidar_->anglehv_table_->payload)->table),
                 append);
+            start_2 = InnoUtils::get_time_ns();
+            convert_xyz_mean_ms_.add((start_2 - start) / 1000000.0);
             // last packet of the frame, deliver the frame
             if (data_packet->is_last_sub_frame) {
               xyz_pkt->is_last_sub_frame = 1;
               lidar_->data_packet_callback_(lidar_->handle_, lidar_->callback_context_, xyz_pkt);
+              callback_mean_ms_.add((InnoUtils::get_time_ns() - start_2) / 1000000.0);
               point_count_2nd_return = InnoDataPacketUtils::get_points_count_2nd_return(*xyz_pkt);
             }
-            start_2 = InnoUtils::get_time_ns();
-            convert_xyz_mean_ms_.add((start_2 - start) / 1000000.0);
           } else {
             start_2 = start;
 
@@ -175,8 +172,8 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
               need_free_buffer = false;
               lidar_->add_deliver2_job_(reinterpret_cast<void *>(data_packet));
             }
+            callback_mean_ms_.add((InnoUtils::get_time_ns() - start_2) / 1000000.0);
           }
-          callback_mean_ms_.add((InnoUtils::get_time_ns() - start_2) / 1000000.0);
         }
         lidar_->stats_update_packet_bytes(ResourceStats::PACKET_TYPE_DATA, 1, n);
         int new_frame = 0;
@@ -186,6 +183,9 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
           // print every 30 seconds
           if (stats_frames_ % (15 * 30) == 10) {
             print_stats();
+            // reset stats
+            convert_xyz_mean_ms_.reset();
+            callback_mean_ms_.reset();
             lidar_->cp_deliver_->print_stats();
           }
         }
@@ -247,7 +247,7 @@ int StageClientDeliver::process_job_(InnoCommonHeader *pkt, bool prefer) {
   return 0;
 }
 
-void StageClientDeliver::print_stats() const {
+void StageClientDeliver::print_stats() {
   inno_log_info(
       "StageClientDeliever: "
       "convert_xyz mean/std/max/total=%.2fms/%.2f/%.2f/"

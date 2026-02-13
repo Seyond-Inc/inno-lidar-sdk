@@ -539,10 +539,8 @@ int FileInput::read_packet_(InnoDataPacket *data_packet, size_t *data_len, InnoD
   major_version = header.version.major_version;
   if (header.version.magic_number == kInnoMagicNumberStatusPacket) {
     status_packet->common = header;
-    int to_read = sizeof(InnoStatusPacket) - sizeof(InnoCommonHeader);
-    if (status_packet->common.version.major_version == InnoPacketV1Adapt::kInnoProtocolMajorV1) {
-      to_read = sizeof(InnoStatusPacketV1) - sizeof(InnoCommonHeader);
-    }
+    int to_read = status_packet->common.size - sizeof(InnoCommonHeader);
+
     ret = read_fd_(reinterpret_cast<char *>(status_packet) + sizeof(InnoCommonHeader), to_read);
     if (ret < to_read) {
       inno_log_warning("can not read version header, read return %d", ret);
@@ -562,13 +560,10 @@ int FileInput::read_packet_(InnoDataPacket *data_packet, size_t *data_len, InnoD
         inno_log_warning("status packet checksum error");
         return -2;
       }
-    } else if (sizeof(InnoStatusPacket) != header.size) {
-      inno_log_warning("bad data header size, read return %d vs %u", ret, header.size);
-      return -2;
     } else {
       *data_len = 0;
       *message_len = 0;
-      *status_len = sizeof(InnoStatusPacket);
+      *status_len = header.size;
       return header.size;
     }
   } else if (header.version.magic_number == kInnoMagicNumberDataPacket) {
@@ -780,7 +775,6 @@ int UdpInput::read_udp_(int32_t port, bool message_port_is_separate) {
                                   "EAGAIN"
                                               : "EWOULDBLOCK");
           timeout_flag *= 2;
-          inno_log_info("port %d message_port_is_separate %d", port, message_port_is_separate);
         }
         eagain_count++;
         continue;

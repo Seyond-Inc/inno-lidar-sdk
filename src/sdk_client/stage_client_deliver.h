@@ -99,7 +99,7 @@ class StageClientDeliver {
   /**
    * @brief Print stage stats
    */
-  void print_stats(void) const;
+  void print_stats(void);
 
  private:
   /**
@@ -117,8 +117,8 @@ class StageClientDeliver {
   int process_job_(InnoCommonHeader *pkt, bool prefer);
 
  public:
-  // assume max point number in one frame is 300000
-  static const size_t kMaxXyzDataPacketBufSize = 300000 * sizeof(InnoEnXyzPoint);
+  // assume max point number in one frame is 800000
+  static const size_t kMaxXyzDataPacketBufSize = 800000 * sizeof(InnoEnXyzPoint);
   static const size_t kMaxInnoDataBufferSize = 65536;
 
  private:

@@ -28,18 +28,19 @@
 #define CHECK_XYZ_POINTCLOUD_DATA(X)                                                  \
 (X == INNO_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || \
-X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD)
+X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD || \
+X == INNO_ROBINE2X_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_SPHERE_POINTCLOUD_DATA(X)                                                     \
 (X == INNO_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD || \
 X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD \
-|| X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD)
+|| X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD)
 
 #define CHECK_EN_XYZ_POINTCLOUD_DATA(X)                                                      \
 (X == INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_XYZ_POINTCLOUD || \
 X == INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD \
-|| X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD)
+|| X == INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD || X == INNO_ROBINE2X_ITEM_TYPE_XYZ_POINTCLOUD)
 
 #define CHECK_EN_SPHERE_POINTCLOUD_DATA(X) \
 (X == INNO_ROBINE_ITEM_TYPE_SPHERE_POINTCLOUD || X == INNO_ROBINW_ITEM_TYPE_SPHERE_POINTCLOUD || \
@@ -47,11 +48,13 @@ X == INNO_FALCONII_DOT_1_ITEM_TYPE_SPHERE_POINTCLOUD)
 
 #define CHECK_CO_SPHERE_POINTCLOUD_DATA(X)                                                               \
 (X == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD || \
-X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD)
+X == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD || X == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD || \
+X == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD)
 
 #define CHECK_ANGLEHV_TABLE_DATA(X) \
 (X == INNO_ROBINE_LITE_TYPE_ANGLEHV_TABLE || X == INNO_ROBINW_ITEM_TYPE_ANGLEHV_TABLE || \
-X == INNO_HB_ITEM_TYPE_ANGLEHV_TABLE || X == INNO_ROBINE2_TYPE_ANGLEHV_TABLE)
+X == INNO_HB_ITEM_TYPE_ANGLEHV_TABLE || X == INNO_ROBINE2_TYPE_ANGLEHV_TABLE || \
+X == INNO_ROBINE2X_TYPE_ANGLEHV_TABLE)
 // FUNC is in type InnoDataPacketPointsIterCallback
 #define ITERARATE_INNO_DATA_PACKET_CPOINTS(FUNC, ctx, packet, count)                                            \
   do {                                                                                                          \
@@ -221,6 +224,7 @@ class InnoDataPacketUtils {
   static int8_t robinw_nps_adjustment_[kRobinWScanlines_][kHTableSize_][kXYZSize_];
   static int8_t robinw_nps_adjustment_pin_[kRobinWDistSize_][kRobinWScanlines_][kHTableSize_][kXYZSize_];
   static int8_t robinelite_nps_adjustment_[kRobinEliteScanlines_][kHTableSize_][kXYZSize_];
+  static int8_t robine2_nps_adjustment_[1][kHTableSize_][kXYZSize_];
 
  private:
   /**
@@ -261,6 +265,7 @@ class InnoDataPacketUtils {
   static void init_robinw_nps_adjustment_();
 
   static void init_robinelite_nps_adjustment_();
+  static void init_robine2_nps_adjustment_();
   static void set_vehicle_coordinate(int8_t value) {
     vehicle_coordinate_ = value;
   }
@@ -382,6 +387,12 @@ class InnoDataPacketUtils {
       case INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD: {
         using TableType = AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinE2MaxSetNumber][kMaxReceiverInSet];
         get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinE2MaxSetNumber);
+        break;
+      }
+      case INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD: {
+        using TableType =
+            AngleHV(&)[kPolygonMaxFacets][kPolygonTableSize][kInnoRobinE2XMaxSetNumber][kMaxReceiverInSet];
+        get_block_full_angles_interpolate_impl<TableType>(full, b, anglehv_table, kInnoRobinE2XMaxSetNumber);
         break;
       }
       default:
@@ -596,10 +607,10 @@ class InnoDataPacketUtils {
       index = (block.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
     }
     scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
-    if (type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD) {
-      scan_id = block.scan_id *kMaxReceiverInSet + channel;
+    if (type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD || type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      scan_id = block.scan_id * kMaxReceiverInSet + channel;
     }
-    get_xyzr_meter(angles, cp.radius, scan_id, &xyzr, type, cp.firing);
+    get_xyzr_meter(angles, cp.radius, scan_id, &xyzr, type);
     if (vehicle_coordinate_ == 1) {
       pt->x = xyzr.z;
       pt->y = -xyzr.y;
@@ -657,6 +668,7 @@ class InnoDataPacketUtils {
     case INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD:
     case INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD:
+    case INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD:
       if (mode == INNO_MULTIPLE_RETURN_MODE_SINGLE) {
         unit_size = sizeof(InnoCoBlock1);
       } else if (mode == INNO_MULTIPLE_RETURN_MODE_2_STRONGEST ||
@@ -686,6 +698,7 @@ class InnoDataPacketUtils {
     case INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_ROBINE2X_ITEM_TYPE_XYZ_POINTCLOUD:
       unit_size = sizeof(InnoEnXyzPoint);
       break;
     default:
@@ -758,7 +771,7 @@ class InnoDataPacketUtils {
   static bool check_status_packet_fault(const InnoStatusPacket &pkt);
 
   /**
-   * @brief Correct IMU status data based on IMU position
+   * @brief Correct IMU status data based on IMU position, only used for falcon-k and falcon-k24
    * @param pkt InnoStatusPacket
    * @param out_pkt Destination status packet
    * @param is_wgs is_wgs IMU physical direction, falcon-k: false falcon-k24: true
