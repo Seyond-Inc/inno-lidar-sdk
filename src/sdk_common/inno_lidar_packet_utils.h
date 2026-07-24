@@ -161,7 +161,7 @@ X == INNO_ROBINE2X_TYPE_ANGLEHV_TABLE)
     }                                                                                                      \
   } while (0)
 
-// only used for robin
+// only used for robinw & robinELITE
 #define DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(type)                              \
   const uint8_t *channel_mapping;                                              \
   int tdc_channel_number = 0;                                                  \
@@ -224,7 +224,7 @@ class InnoDataPacketUtils {
   static int8_t robinw_nps_adjustment_[kRobinWScanlines_][kHTableSize_][kXYZSize_];
   static int8_t robinw_nps_adjustment_pin_[kRobinWDistSize_][kRobinWScanlines_][kHTableSize_][kXYZSize_];
   static int8_t robinelite_nps_adjustment_[kRobinEliteScanlines_][kHTableSize_][kXYZSize_];
-  static int8_t robine2_nps_adjustment_[1][kHTableSize_][kXYZSize_];
+  static int8_t robine2x_nps_adjustment_[1][kHTableSize_][kXYZSize_];
 
  private:
   /**
@@ -265,7 +265,7 @@ class InnoDataPacketUtils {
   static void init_robinw_nps_adjustment_();
 
   static void init_robinelite_nps_adjustment_();
-  static void init_robine2_nps_adjustment_();
+  static void init_robine2x_nps_adjustment_();
   static void set_vehicle_coordinate(int8_t value) {
     vehicle_coordinate_ = value;
   }
@@ -434,7 +434,7 @@ class InnoDataPacketUtils {
 
   static inline bool is_inside_fov_point(InnoBlockAngles angle, InnoItemType type) {
     if (type == INNO_HB_ITEM_TYPE_COMPACT_POINTCLOUD) {
-      return is_hb_inside_fov_point(angle);
+      return true;
     } else {
       return is_robin_inside_fov_point(angle);
     }
@@ -605,9 +605,11 @@ class InnoDataPacketUtils {
     int index = block.scan_id * kMaxReceiverInSet + channel;
     if (type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
       index = (block.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
-    }
-    scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
-    if (type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD || type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
+    } else if (type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD) {
+      scan_id = channel_mapping[index] + block.facet * tdc_channel_number;
+    } else if (type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD ||
+               type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD) {
       scan_id = block.scan_id * kMaxReceiverInSet + channel;
     }
     get_xyzr_meter(angles, cp.radius, scan_id, &xyzr, type);

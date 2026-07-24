@@ -4,7 +4,7 @@ platform=`uname -s`
 # Check if the platform is Linux
 if [ "$platform" == "Linux" ]; then
     # Check if the cross-compiler is for ARM
-    if [[ "$(echo $CC | grep -o 'aarch64-linux-gnu')" ]]; then
+    if [[ "$(echo $CC | grep -Eo 'aarch64.*linux')" ]]; then
         export ARCH_TAG=-arm
     else
         export ARCH_TAG=-x86

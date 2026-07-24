@@ -231,10 +231,14 @@ void CallbackProcessor::co_block_to_xyz_point(const InnoDataPacket &pkt, std::ve
             DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
             int index = (block->header.scan_id % kInnoRobinELiteMaxSetNumber) * kMaxReceiverInSet + channel;
             scan_id = channel_mapping[index];
-          } else {
+          } else if (pkt.type == INNO_ROBINW_ITEM_TYPE_COMPACT_POINTCLOUD) {
             DEFINE_INNO_ITEM_TYPE_SPECIFIC_DATA(pkt.type);
             int index = block->header.scan_id * kMaxReceiverInSet + channel;
             scan_id = channel_mapping[index] + block->header.facet * tdc_channel_number;
+          } else if (pkt.type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD ||
+                     pkt.type == INNO_ROBINE2_ITEM_TYPE_COMPACT_POINTCLOUD) {
+            // RobinE2x
+            scan_id = block->header.scan_id * 8 + channel;
           }
           InnoDataPacketUtils::get_xyzr_meter(full_angles.angles[channel], pt.radius, scan_id, &xyzr,
                                               static_cast<InnoItemType>(pkt.type));

@@ -17,6 +17,15 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
 
+option(ENABLE_ASAN "Enable AddressSanitizer memory check" OFF)
+if(ENABLE_ASAN)
+    message(STATUS "Build with AddressSanitizer")
+    set(SANITIZER_FLAGS "-fsanitize=address -g -O1")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+endif()
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Check if GCC supports -fmacro-prefix-map option
     check_cxx_compiler_flag(-fmacro-prefix-map HAS_MACRO_PREFIX_MAP_GCCXX)

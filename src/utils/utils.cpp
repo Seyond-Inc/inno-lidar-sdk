@@ -653,6 +653,20 @@ int InnoUdpHelper::bind(uint16_t port,
     }
   }
 
+
+
+#if (defined(__MINGW64__) || defined(_WIN32))
+  int real_val;
+  int len = sizeof(real_val);
+  getsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<char *>(&real_val), &len);
+  inno_log_info("udp listener bind to port:%d, real recv buf size:%d", port, real_val);
+#else
+  int real_val;
+  socklen_t len = sizeof(real_val);
+  getsockopt(socket_fd, SOL_SOCKET, SO_RCVBUF, &real_val, &len);
+  inno_log_info("udp listener bind to port:%d, real recv buf size:%d", port, real_val);
+#endif
+
 #if (defined(__MINGW64__) || defined(_WIN32))
   int timeout = 500;  // 0.5 second
   setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));

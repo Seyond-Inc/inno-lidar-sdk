@@ -5,5 +5,5 @@
  *
  */
 
-const static char inno_api_version_g[] = "3.103.10.20260121055627";
-const static char inno_api_build_tag_g[] = "release-client-sdk-3.103.10";
+const static char inno_api_version_g[] = "3.103.13.20260703135617";
+const static char inno_api_build_tag_g[] = "release-client-sdk-3.103.13";

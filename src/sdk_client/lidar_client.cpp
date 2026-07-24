@@ -53,7 +53,7 @@ InnoLidarClient::InnoLidarClient(const char *name, const char *lidar_ip, uint16_
     param.udp_param.lidar_ip[sizeof(param.udp_param.lidar_ip) - 1] = '\0';
     stage_read_ = new StageClientRead(this, comm_, &param);
   }
-
+  inputParam_ = param;
   inno_log_verify(stage_read_, "%s cannot allocate stage_read", name_);
   inno_log_info("%s uses live lidar at %s port=%hu udp_port=%hu", name_, ip_, port, udp_port);
 
@@ -74,8 +74,8 @@ InnoLidarClient::InnoLidarClient(const char *name, const char *filename, int pla
   param.file_param.play_rate = play_rate;
   param.file_param.rewind = rewind;
   param.file_param.skip = skip;
-
   stage_read_ = new StageClientRead(this, comm_, &param);
+  inputParam_ = param;
   inno_log_verify(stage_read_, "%s cannot allocate stage_read", name_);
   inno_log_info("%s open file %s, rate=%dMB/s %fX", name_, filename_, play_rate_, play_rate_x_);
   return;
@@ -90,6 +90,7 @@ InnoLidarClient::InnoLidarClient(const char *name, void *ctx) : InnoLidarBase("L
   }
 
   stage_read_ = new StageClientRead(this, comm_, ctx);
+  inputParam_ = *p;
   inno_log_verify(stage_read_, "%s cannot allocate stage_read", name_);
   return;
 }
@@ -885,8 +886,7 @@ int InnoLidarClient::before_read_start(void) {
   if (is_live_lidar_()) {
     char buffer[1024];
 
-    std::vector<std::string> items = {"sw_version", "command_line", "fw_version",        "lidar_id",
-                                      "debug",      "udp_ports_ip", "status_interval_ms"};
+    std::vector<std::string> items = {"sw_version", "command_line", "fw_version", "status_interval_ms"};
     for (auto item : items) {
       ret = comm_->get_attribute(item.c_str(), buffer, sizeof(buffer));
       if (ret) {
@@ -914,8 +914,54 @@ int InnoLidarClient::before_read_start(void) {
     } else {
       inno_log_info("%s frame_rate: %f", get_name(), frames_per_second_);
     }
+    // get udp ports and ip
+    ret = get_set_udp_ports_ip(&udp_ip_ports_);
+    if (ret) {
+      inno_log_error("cannot get/set udp ports/ip");
+      return ret;
+    }
   }
   return 0;
+}
+
+int32_t InnoLidarClient::get_set_udp_ports_ip(UdpIpPorts* udp_ports) {
+  int32_t ret = 0;
+  for (int round = 0; round < 2; round++) {
+    ret = comm_->get_server_udp_ports_ip(&(udp_ports->ports[0]), &(udp_ports->ports[1]), &(udp_ports->ports[2]),
+                                         udp_ports->ip, sizeof(udp_ports->ip), udp_ports->my_ip,
+                                         sizeof(udp_ports->my_ip));
+    if (ret != 0) {
+      return -1;
+    } else {
+      inno_log_info("read udps: data:%d status:%d message:%d ip=%s my_ip=%s", udp_ports->ports[0], udp_ports->ports[1],
+                    udp_ports->ports[2], udp_ports->ip, udp_ports->my_ip);
+      if (udp_ports->ip[0] != 0 && udp_ports->ip[0] != '0' &&
+          (udp_ports->ports[0] != 0 || udp_ports->ports[1] != 0 || udp_ports->ports[2] != 0)) {
+        // ip and ports are valid
+        return 0;
+      }
+    }
+
+    if ((udp_ports->ip[0] == 0 || udp_ports->ip[0] == '0') && inputParam_.udp_param.udp_port == 0) {
+      inno_log_error("will not set remote udp port/ip because udp_port is 0 and server udp is off");
+      return -1;
+    }
+
+    if (round == 0) {
+      // only set_server_udp_ports_ip in the first round
+      if (inputParam_.udp_param.udp_port != 0) {
+        inno_log_info("set_server_udp_ports_ip(%hu)", inputParam_.udp_param.udp_port);
+        comm_->set_server_udp_ports_ip(inputParam_.udp_param.udp_port);
+      }
+    } else {
+      // server udp is still off
+      if (udp_ports->ip[0] == 0 || udp_ports->ip[0] == '0') {
+        inno_log_error("cannot set remote udp port/ip");
+        return -1;
+      }
+    }
+  }
+  return -1;
 }
 
 void InnoLidarClient::add_config(Config *c) {

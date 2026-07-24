@@ -50,6 +50,7 @@ class StageClientDeliverConfig : public Config {
    * @return Ignored
    */
   int set_key_value_(const std::string &key, double value) override {
+    SET_CFG(disable_do_crc);
     SET_CFG(enable_stage_client_deliver2);
     return -1;
   }

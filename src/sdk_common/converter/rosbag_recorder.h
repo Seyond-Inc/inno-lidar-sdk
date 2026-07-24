@@ -288,7 +288,7 @@ typedef struct StdMsgs {
 
 #pragma pack(4)
  private:
-  static const size_t kBagBufferSize = 1024 * 1024 * 10;
+  static const size_t kBagBufferSize = 32 * 800000;
   static const uint32_t kBagHeadPadLen = 0x0fbb;
   static const uint32_t kBagOffset = 0x0991;
   static const uint32_t kUnit32Len = 4;
@@ -334,10 +334,10 @@ bool is_dense        # True if there are no invalid points
 ================================================================================
 MSG: std_msgs/Header
 # Standard metadata for higher-level stamped data types.
-# This is generally used to communicate timestamped data 
+# This is generally used to communicate timestamped data
 # in a particular coordinate frame.
-# 
-# sequence ID: consecutively increasing ID 
+#
+# sequence ID: consecutively increasing ID
 uint32 seq
 #Two-integer timestamp that is expressed as:
 # * stamp.sec: seconds (stamp_secs) since epoch (in Python the variable is called 'secs')

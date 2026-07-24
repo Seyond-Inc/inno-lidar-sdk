@@ -10,7 +10,7 @@
 #include "sdk_client/stage_client_read_pcap.h"
 
 #include <thread>
-
+#include <cmath>
 #include "sdk_client/inno_lidar_packet_v1_adapt.h"
 #include "sdk_client/lidar_client.h"
 #include "sdk_client/lidar_client_communication.h"
@@ -722,7 +722,7 @@ int UdpInput::bind_udp_port_(uint16_t port) {
   InnoUdpOpt opt = {SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const void *>(&tv), static_cast<socklen_t>(sizeof(tv)),
                     "SO_RCVTIMEO"};
   opts.emplace_back(opt);
-  int n = 1024 * 1024;
+  int n = 1024 * 1024 * 4;
   opt = {SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const void *>(&n), static_cast<socklen_t>(sizeof(n)), "SO_RCVBUF"};
   opts.emplace_back(opt);
   return InnoUdpHelper::bind(port, opts);
@@ -777,6 +777,10 @@ int UdpInput::read_udp_(int32_t port, bool message_port_is_separate) {
           timeout_flag *= 2;
         }
         eagain_count++;
+        // only report timeout for status-port and data-port
+        if (message_port_is_separate == false) {
+          lidar_->do_message_callback(INNO_MESSAGE_LEVEL_ERROR, INNO_MESSAGE_CODE_READ_TIMEOUT, "udp read timeout");
+        }
         continue;
       } else {
         inno_log_error_errno("recv port=%d, n=%d, fd=%d", port, n, fd);
@@ -851,69 +855,30 @@ int UdpInput::read_udp_(int32_t port, bool message_port_is_separate) {
 
 int UdpInput::read_data() {
   static const size_t kPortsCount = 3;
-  static constexpr int32_t kGetUdpPortIntervalMsArray[5] = {500, 500, 1000, 1500, 2000};
   int32_t ports[kPortsCount];
   bool message_port_is_separate = false;
   char ip[64] = {0};
   int ret;
   char my_ip[64] = {0};
-  for (int round = 0; round < 2; round++) {
-    int get_interval_count = 0;
-    while (true) {
-      ret =
-          lidar_->comm_->get_server_udp_ports_ip(&ports[0], &ports[1], &ports[2], ip, sizeof(ip), my_ip, sizeof(my_ip));
-      if (ret != 0) {
-        inno_log_error("cannot get server udp ports %d", ret);
-        if (get_interval_count == 5) {
-          return 1;
-        }
-        if (!start_flag_) {
-          return 0;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kGetUdpPortIntervalMsArray[get_interval_count]));
-        get_interval_count += 1;
-      } else {
-        inno_log_info("read udps: data:%d status:%d message:%d ip=%s my_ip=%s", ports[0], ports[1], ports[2], ip,
-                      my_ip);
-        if (ports[2] != ports[0] && ports[2] != ports[1]) {
-          inno_log_info("message port %d is not same as data port %d and status port %d", ports[2], ports[0],
-                           ports[1]);
-          message_port_is_separate = true;
-        }
-        break;
-      }
-    }
+  ports[0] = lidar_->udp_ip_ports_.ports[0];
+  ports[1] = lidar_->udp_ip_ports_.ports[1];
+  ports[2] = lidar_->udp_ip_ports_.ports[2];
+  memcpy(ip, lidar_->udp_ip_ports_.ip, sizeof(ip));
+  memcpy(my_ip, lidar_->udp_ip_ports_.my_ip, sizeof(my_ip));
 
-    if ((ip[0] == 0 || ip[0] == '0') && udp_port_ == 0) {
-      inno_log_error("will not set remote udp port/ip because udp_port is 0 and server udp is off");
-      send_fatal_message_callback_();
-      return 1;
-    }
-
-    if (round == 0) {
-      // only set_server_udp_ports_ip in the first round
-      if (udp_port_ != 0) {
-        inno_log_info("set_server_udp_ports_ip(%hu)", udp_port_);
-        lidar_->comm_->set_server_udp_ports_ip(udp_port_);
-      }
-    } else {
-      // server udp is still off
-      if (ip[0] == 0 || ip[0] == '0') {
-        inno_log_error("cannot set remote udp port/ip");
-        send_fatal_message_callback_();
-        return 1;
-      }
-      if (my_ip[0] != 0) {
-        mreq_.imr_multiaddr.s_addr = inet_addr(ip);
-        mreq_.imr_interface.s_addr = inet_addr(my_ip);
-        use_mreq_ = true;
-        inno_log_verify(mreq_.imr_multiaddr.s_addr != INADDR_NONE, "bad ip m-addr %s", ip);
-        inno_log_verify(mreq_.imr_interface.s_addr != INADDR_NONE, "bad ip i-addr %s", my_ip);
-        inno_log_info("use multicast addr %s on interface %s", ip, my_ip);
-      }
-    }
+  if (ports[2] != ports[0] && ports[2] != ports[1]) {
+    inno_log_info("message port %d is not same as data port %d and status port %d", ports[2], ports[0], ports[1]);
+    message_port_is_separate = true;
   }
 
+  if (my_ip[0] != 0) {
+    mreq_.imr_multiaddr.s_addr = inet_addr(ip);
+    mreq_.imr_interface.s_addr = inet_addr(my_ip);
+    use_mreq_ = true;
+    inno_log_verify(mreq_.imr_multiaddr.s_addr != INADDR_NONE, "bad ip m-addr %s", ip);
+    inno_log_verify(mreq_.imr_interface.s_addr != INADDR_NONE, "bad ip i-addr %s", my_ip);
+    inno_log_info("use multicast addr %s on interface %s", ip, my_ip);
+  }
   // remove duplicated
   for (size_t i = 0; i < kPortsCount; i++) {
     for (size_t j = 0; j < i; j++) {

@@ -141,12 +141,13 @@ void ResourceStats::show() {
   enum InnoLidarMode pre_mode = INNO_LIDAR_MODE_WORK_NORMAL;
   enum InnoLidarStatus status = INNO_LIDAR_STATUS_NORMAL;
   uint64_t transition_mode_ms = 0;
-  int ret = lidar_->\
-            get_mode_status(&mode, &pre_mode, &status, &transition_mode_ms);
-  if (ret == 0 && status == INNO_LIDAR_STATUS_NORMAL &&
-     (mode == INNO_LIDAR_MODE_WORK_NORMAL ||
-      mode == INNO_LIDAR_MODE_WORK_CALIBRATION ||
-      mode == INNO_LIDAR_MODE_WORK_EXHIBITION)) {
+  // int ret = lidar_->\
+  //           get_mode_status(&mode, &pre_mode, &status, &transition_mode_ms);
+  // if (ret == 0 && status == INNO_LIDAR_STATUS_NORMAL &&
+  //    (mode == INNO_LIDAR_MODE_WORK_NORMAL ||
+  //     mode == INNO_LIDAR_MODE_WORK_CALIBRATION ||
+  //     mode == INNO_LIDAR_MODE_WORK_EXHIBITION))
+  {
     if (read_band_width < kStageReadBandWidthThresholdMBps &&
       (bandwidth_low_counter++ < 30 || bandwidth_low_counter % 16)) {
       inno_log_warning("<READ> bandwidth too low: %0.5f, counter: %u",

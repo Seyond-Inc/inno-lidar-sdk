@@ -67,6 +67,12 @@ class InnoLidarClient : public InnoLidarBase {
     LIDAR_SOURCE_MAX,
   };
 
+  struct UdpIpPorts {
+    int32_t ports[3] = {0};      // UDP ports data status message port
+    char ip[64] = {0};     // UDP dstIP address
+    char my_ip[64] = {0};  // Local IP address
+  };
+
  public:
   // xxx todo: pick the right value
   static const size_t kSignalJobPoolSize = 15;
@@ -446,6 +452,7 @@ class InnoLidarClient : public InnoLidarBase {
   int attribute_raw_data_save_num_(const char *buf);
   int attribute_faults_save_raw_(const char *buf);
   int attribute_use_ring_id_(const char *buf);
+  int get_set_udp_ports_ip(UdpIpPorts* ports);
 
  private:
   /* source info */
@@ -483,6 +490,8 @@ class InnoLidarClient : public InnoLidarBase {
   uint32_t raw_recoder_save_num_{4};
   std::string faults_save_raw_ = {""};
   int raw_receive_port_{0};
+  UdpIpPorts udp_ip_ports_;
+  InputParam inputParam_;
 };
 
 }  // namespace innovusion

@@ -208,7 +208,7 @@ class FileRecorder {
     float intensity;
     double timestamp;
     uint16_t ring_id;
-    uint16_t confidence;
+    uint16_t frame_id;
   };
   DEFINE_INNO_COMPACT_STRUCT_END
 
@@ -455,7 +455,7 @@ class FileRecorder {
   }
 
   void add_lite_points(const double x, const double y, const double z, const uint32_t ref,
-                       const uint32_t confidence_level, const double timestamp_sec, const uint32_t ring_id) {
+                       const uint32_t frame_id, const double timestamp_sec, const uint32_t ring_id) {
     int wri = -1;
     const char *row_format;
     switch (file_type_) {
@@ -465,7 +465,7 @@ class FileRecorder {
         row_format = file_type_ == FILE_TYPE_CSV ? "%.3f,%.3f,%.3f,%u,%.5f,%u,%u\n" :
                                                    "%.3f %.3f %.3f %u %.5f %u %u\n";
         wri =
-            snprintf(&pcd_buf_[0], kPCDBufSize_, row_format, x, y, z, ref, timestamp_sec, ring_id, confidence_level);
+            snprintf(&pcd_buf_[0], kPCDBufSize_, row_format, x, y, z, ref, timestamp_sec, ring_id, frame_id);
         write_buffer_(&pcd_buf_[0], wri);
         break;
 
@@ -476,9 +476,9 @@ class FileRecorder {
         pt->y = y;
         pt->z = z;
         pt->intensity = ref;
-        pt->confidence = confidence_level;
-        pt->timestamp = timestamp_sec;
+        pt->frame_id = frame_id;
         pt->ring_id = ring_id;
+        pt->timestamp = timestamp_sec;
         write_buffer_(pt, wri);
         break;
       }
@@ -598,7 +598,7 @@ class FileRecorder {
     const char *lite_pcd_header =
         "# .PCD v.7 - Point Cloud Data file format\n"
         "FIELDS "
-        "x y z %s timestamp ring_id confid_level\n"
+        "x y z %s timestamp ring_id frame_id\n"
         "SIZE 4 4 4 4 8 2 2\n"
         "TYPE F F F F F U U\n"
         "COUNT 1 1 1 1 1 1 1\n"
@@ -642,7 +642,7 @@ class FileRecorder {
         "flag,elongation,timestamp,"
         "scanline,scan_idx,frame_id,ring_id";
 
-    const char *lite_pcd_csv_header = "x,y,z,%s,timestamp,ring_id,confid_level";
+    const char *lite_pcd_csv_header = "x,y,z,%s,timestamp,ring_id,frame_id";
 
     int r;
     uint32_t max_write_size = 0;
@@ -1072,9 +1072,12 @@ class ExampleProcessor {
       return 0;
     }
     if (cur_frame_id != pkt->idx) {
-      inno_log_info("frame idx:%" PRI_SIZEU ", point_count:%d", cur_frame_id, cur_frame_point);
+      static double frame_start_time = 0;
+      inno_log_info("frame idx:%" PRI_SIZEU ", point_count:%d frame start time:%lf", cur_frame_id, cur_frame_point,
+                    pkt->common.ts_start_us / kUsInSecond);
       cur_frame_id = pkt->idx;
       cur_frame_point = 0;
+      frame_start_time = pkt->common.ts_start_us / kUsInSecond;
     }
     cur_frame_point += InnoDataPacketUtils::get_points_count(*pkt);
 
@@ -1334,7 +1337,7 @@ class ExampleProcessor {
                   block->header.scan_idx, pt.is_2nd_return, 0);
             } else if (recorder_point_type == POINT_TYPE_LITE_PCD) {
               recorder->add_lite_points(x, y, z, pkt.use_reflectance ? pt.reflectance : pt.intensity,
-                                        pkt.confidence_level,
+                                        pkt.idx,
                                         frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id);
             } else {
               recorder->add_points(pkt.idx, x, y, z, pkt.use_reflectance ? pt.reflectance : pt.intensity, channel,
@@ -1429,7 +1432,7 @@ class ExampleProcessor {
                                       frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id,
                                       scan_idx, pt.is_2nd_return, scan_id);
             } else if (recorder_point_type == POINT_TYPE_LITE_PCD) {
-              recorder->add_lite_points(x, y, z, pt.refl, pkt.confidence_level,
+              recorder->add_lite_points(x, y, z, pt.refl, pkt.idx,
                                         frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, scan_id);
             } else {
               recorder->add_points(pkt.idx, x, y, z, pt.refl, channel, block->header.in_roi, block->header.facet, m,
@@ -1491,7 +1494,7 @@ class ExampleProcessor {
                   frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, block->header.scan_id,
                   block->header.scan_idx, pt.is_2nd_return, ring_id);
             } else if (recorder_point_type == POINT_TYPE_LITE_PCD) {
-              recorder->add_lite_points(x, y, z, pt.refl, pkt.confidence_level,
+              recorder->add_lite_points(x, y, z, pt.refl, pkt.idx,
                                         frame_timestamp_sec + block->header.ts_10us / k10UsInSecond, ring_id);
             } else {
               recorder->add_points(pkt.idx, x, y, z, pt.refl, channel, block->header.in_roi, block->header.facet, m,

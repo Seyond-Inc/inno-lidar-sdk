@@ -89,7 +89,7 @@ int LidarClientCommunication::send_get_command_(const char *name, char *buffer, 
         return -2;
       }
     } else {
-      inno_log_warning("%s unsuccessful (HTML code %d) -- returned %s", url, status_code, buffer);
+      inno_log_warning("%s unsuccessful (HTML code %d) -- returned %s", url, status_code, content);
       return -3;
     }
   } else {

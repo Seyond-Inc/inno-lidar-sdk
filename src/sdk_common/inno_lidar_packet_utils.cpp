@@ -28,7 +28,7 @@ int8_t InnoDataPacketUtils::robinw_nps_adjustment_pin_[kRobinWDistSize_][kRobinW
 // interval boundary 7.5, 8.5, 9.5, 12.5, 17.5, 25, 40cm for tables at d = 7, 8, 9, 10, 15, 20, 30, 50cm
 const uint32_t InnoDataPacketUtils::kRobinDist_[kRobinWDistSize_-1] = {30, 34, 38, 50, 70, 100, 160};
 int8_t InnoDataPacketUtils::robinelite_nps_adjustment_[kRobinEliteScanlines_][kHTableSize_][kXYZSize_];
-int8_t InnoDataPacketUtils::robine2_nps_adjustment_[1][kHTableSize_][kXYZSize_];
+int8_t InnoDataPacketUtils::robine2x_nps_adjustment_[1][kHTableSize_][kXYZSize_];
 int8_t InnoDataPacketUtils::vehicle_coordinate_ = 0;
 
 // for robinW
@@ -154,7 +154,7 @@ int InnoDataPacketUtils::init_f_robin(void) {
   init_robinw_nps_adjustment_();
 
   init_robinelite_nps_adjustment_();
-  init_robine2_nps_adjustment_();
+  init_robine2x_nps_adjustment_();
 
   return 0;
 }
@@ -217,19 +217,19 @@ void InnoDataPacketUtils::init_robinelite_nps_adjustment_() {
   //     k_max[2] - k_min[2]);
 }
 
-void InnoDataPacketUtils::init_robine2_nps_adjustment_() {
+void InnoDataPacketUtils::init_robine2x_nps_adjustment_() {
   double k_max[3] = {-200, -200, -200};
   double k_min[3] = {200, 200, 200};
   size_t input_size = 1 * (kHRobinTableEffeHalfSize_ * 2 + 1) * kXYZSize_;
-  inno_log_verify(sizeof(robinE2_kInnoPs2Nps) == input_size * sizeof(double), "robinE_kInnoPs2Nps");
+  inno_log_verify(sizeof(robinE2x_kInnoPs2Nps) == input_size * sizeof(double), "robinE_kInnoPs2Nps");
   inno_log_verify(kHTableSize_ >= kHRobinTableEffeHalfSize_ * 2 + 1, "kHTableSize_");
-  memset(robine2_nps_adjustment_, 0, sizeof(robine2_nps_adjustment_));
+  memset(robine2x_nps_adjustment_, 0, sizeof(robine2x_nps_adjustment_));
   for (uint32_t h = 0; h < kHRobinTableEffeHalfSize_ * 2 + 1; h++) {
     for (uint32_t xyz = 0; xyz < kXYZSize_; xyz++) {
-      double k = robinE2_kInnoPs2Nps[xyz][h];
+      double k = robinE2x_kInnoPs2Nps[xyz][h];
       double u = k * 0.001 / kAdjustmentUnitInMeterRobin_;
       double q = std::floor(u + 0.5);
-      robine2_nps_adjustment_[0][h][xyz] = q;
+      robine2x_nps_adjustment_[0][h][xyz] = q;
       k_max[xyz] = std::max(k_max[xyz], k);
       k_min[xyz] = std::min(k_min[xyz], k);
     }
@@ -263,7 +263,7 @@ inline void InnoDataPacketUtils::lookup_xyz_adjustment_(const InnoBlockAngles &a
   if (type == INNO_ROBINELITE_ITEM_TYPE_COMPACT_POINTCLOUD) {
     robin_nps_adjustment = robinelite_nps_adjustment_;
   } else if (type == INNO_ROBINE2X_ITEM_TYPE_COMPACT_POINTCLOUD) {
-    robin_nps_adjustment = robine2_nps_adjustment_;
+    robin_nps_adjustment = robine2x_nps_adjustment_;
     scan_id = 0;  // RobinE2 does not need scan_id
   } else  {
     robin_nps_adjustment = robinw_nps_adjustment_;  // robinw_nps_adjustment_
@@ -533,6 +533,8 @@ bool InnoDataPacketUtils::check_data_packet(const InnoDataPacket &pkt, size_t si
     case INNO_ROBINELITE_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_FALCONII_DOT_1_ITEM_TYPE_XYZ_POINTCLOUD:
     case INNO_HB_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_ROBINE2_ITEM_TYPE_XYZ_POINTCLOUD:
+    case INNO_ROBINE2X_ITEM_TYPE_XYZ_POINTCLOUD:
       if (pkt.item_size != sizeof(InnoEnXyzPoint)) {
         inno_log_warning("bad InnoEnXyzPoint item size %u", pkt.item_size);
         return false;
@@ -629,7 +631,10 @@ bool InnoDataPacketUtils::check_status_packet(const InnoStatusPacket &pkt, size_
     return false;
   }
 
-
+  if (pkt.common.size != sizeof(pkt)) {
+    inno_log_warning("bad size status packet %u %" PRI_SIZELU, pkt.common.size, sizeof(pkt));
+    return false;
+  }
   if (!InnoPacketReader::verify_packet_crc32(&pkt.common)) {
     inno_log_warning("crc32 mismatch for status packet");
     return false;
