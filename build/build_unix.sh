@@ -33,7 +33,13 @@ if [[ "${ARCH_TAG}" ]]; then
     cmake_param="-DARCH_TAG=${ARCH_TAG} ${cmake_param}"
 fi
 
-cmake_param="-DCMAKE_BUILD_TYPE=Release ${cmake_param}"
+if [[ -z "${CMAKE_BUILD_TYPE}" ]]; then
+    CMAKE_BUILD_TYPE=Release
+else
+    echo "Using CMAKE_BUILD_TYPE from environment: ${CMAKE_BUILD_TYPE}"
+fi
+cmake_param="-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} ${cmake_param}"
+
 if [[ "$shared" == "1" ]]; then
     cmake_param="${cmake_param} -DMAKE_SHARED=1"
 fi
