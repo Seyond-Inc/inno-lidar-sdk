@@ -495,8 +495,8 @@ int NetManager::recv_length_buffer(char *buff,
 
   len = ntohl(len);
 
-  if (len >= buff_len) {  // need to set buff[len] to 0 later
-    inno_log_error("Error: file size %d is too large (>=%d)", len, buff_len);
+  if (len < 0 || len >= buff_len) {  // need to set buff[len] to 0 later
+    inno_log_error("Error: invalid file size %d for buffer size %d", len, buff_len);
     InnoUtils::close_fd(fd);
     return -2;
   }
